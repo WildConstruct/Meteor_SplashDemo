@@ -1,0 +1,18 @@
+{
+  "id": "metal-bounce",
+  "name": "Metal Bounce",
+  "contactMode": "crown",
+  "atlasEntry": 1,
+  "lifetime": 0.5,
+  "radiusCurve": [0.0, 0.5, 0.7],
+  "heightCurve": [0.0, 1.0, 0.3, 0.0],
+  "reboundProbability": 0.55,
+  "secondaryCount": 6,
+  "secondarySpeed": 2.0,
+  "secondarySpread": 0.6,
+  "directionalBias": 0.6,
+  "wetnessDeposit": 0.4,
+  "waterDeposit": 0.1,
+  "rippleImpulse": 0.25,
+  "visualGain": 1.3
+}

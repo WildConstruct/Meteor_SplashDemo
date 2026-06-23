@@ -1,0 +1,25 @@
+{
+  "name": "meteor-webgpu-demo",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Meteor static-plate VFX demo — browser-first WebGPU implementation.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "assets": "node scripts/make-demo-assets.mjs",
+    "test": "npm run check:boundaries && npm run validate:wgsl && npm run validate:wcx && vitest run",
+    "test:unit": "vitest run",
+    "test:watch": "vitest",
+    "test:browser": "playwright test",
+    "validate:wgsl": "node scripts/validate-wgsl.mjs",
+    "validate:wcx": "node scripts/validate-wcx.mjs",
+    "check:boundaries": "node scripts/check-boundaries.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.48.0",
+    "vite": "^5.4.0",
+    "vitest": "^2.1.0"
+  }
+}

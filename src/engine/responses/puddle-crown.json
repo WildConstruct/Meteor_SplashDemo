@@ -1,0 +1,18 @@
+{
+  "id": "puddle-crown",
+  "name": "Puddle Crown",
+  "contactMode": "crown",
+  "atlasEntry": 2,
+  "lifetime": 0.8,
+  "radiusCurve": [0.0, 1.0, 1.2],
+  "heightCurve": [0.0, 0.6, 0.2, 0.0],
+  "reboundProbability": 0.2,
+  "secondaryCount": 8,
+  "secondarySpeed": 1.2,
+  "secondarySpread": 1.4,
+  "directionalBias": 0.05,
+  "wetnessDeposit": 0.7,
+  "waterDeposit": 0.5,
+  "rippleImpulse": 0.6,
+  "visualGain": 0.95
+}
