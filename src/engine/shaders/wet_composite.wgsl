@@ -40,7 +40,7 @@ fn encodeOut(rgb: vec3<f32>) -> vec3<f32> {
 @fragment
 fn fs(in: VSOut) -> @location(0) vec4<f32> {
   let imgUV = in.uv;
-  var base = textureSample(colorIn, samp, imgUV).rgb;
+  var base = textureSampleLevel(colorIn, samp, imgUV, 0.0).rgb;
 
   if (surface.enabled < 0.5) {
     return vec4<f32>(encodeOut(base), 1.0);
@@ -52,10 +52,10 @@ fn fs(in: VSOut) -> @location(0) vec4<f32> {
     return vec4<f32>(encodeOut(base), 1.0);
   }
 
-  let mask = textureSample(maskTex, samp, surfUV).r;
-  let state = textureSample(stateTex, samp, surfUV);     // wet, water, rippleH, rippleV
-  let relief = textureSample(reliefTex, samp, surfUV);   // height, gx, gy, mag
-  let flow = textureSample(flowTex, samp, surfUV).xy;
+  let mask = textureSampleLevel(maskTex, samp, surfUV, 0.0).r;
+  let state = textureSampleLevel(stateTex, samp, surfUV, 0.0);     // wet, water, rippleH, rippleV
+  let relief = textureSampleLevel(reliefTex, samp, surfUV, 0.0);   // height, gx, gy, mag
+  let flow = textureSampleLevel(flowTex, samp, surfUV, 0.0).xy;
 
   let wet = state.r;
   let water = state.g;
@@ -83,18 +83,18 @@ fn fs(in: VSOut) -> @location(0) vec4<f32> {
 
   // ---- perturbed normal from ripple gradient + micro-normal ----
   let texel = 1.0 / max(surface.simResolution, 16.0);
-  let rl = textureSample(stateTex, samp, surfUV - vec2<f32>(texel, 0.0)).b;
-  let rr = textureSample(stateTex, samp, surfUV + vec2<f32>(texel, 0.0)).b;
-  let rd = textureSample(stateTex, samp, surfUV - vec2<f32>(0.0, texel)).b;
-  let ru = textureSample(stateTex, samp, surfUV + vec2<f32>(0.0, texel)).b;
+  let rl = textureSampleLevel(stateTex, samp, surfUV - vec2<f32>(texel, 0.0), 0.0).b;
+  let rr = textureSampleLevel(stateTex, samp, surfUV + vec2<f32>(texel, 0.0), 0.0).b;
+  let rd = textureSampleLevel(stateTex, samp, surfUV - vec2<f32>(0.0, texel), 0.0).b;
+  let ru = textureSampleLevel(stateTex, samp, surfUV + vec2<f32>(0.0, texel), 0.0).b;
   var n = vec3<f32>(-(rr - rl) * params.rippleNormalStrength,
                     -(ru - rd) * params.rippleNormalStrength, 1.0);
-  let micro = textureSample(microTex, samp, surfUV * 6.0).xy * 2.0 - 1.0;
+  let micro = textureSampleLevel(microTex, samp, surfUV * 6.0, 0.0).xy * 2.0 - 1.0;
   n = normalize(n + vec3<f32>(micro * params.microNormalStrength * wet, 0.0));
 
   // ---- distortion (refraction) ----
   let distort = (n.xy + flow * 0.5) * params.distortion * 0.02 * clamp(water, 0.0, 1.0);
-  base = textureSample(colorIn, samp, imgUV + distort).rgb;
+  base = textureSampleLevel(colorIn, samp, imgUV + distort, 0.0).rgb;
 
   let wetAmt = clamp(wet, 0.0, 1.0);
   var col = base;
@@ -117,8 +117,8 @@ fn fs(in: VSOut) -> @location(0) vec4<f32> {
   col = col + params.poolHighlight * 0.2 * clamp(water, 0.0, 1.0) * spec;
 
   // ---- edge bead near mask boundary ----
-  let beadL = textureSample(maskTex, samp, surfUV - vec2<f32>(texel, 0.0)).r;
-  let beadR = textureSample(maskTex, samp, surfUV + vec2<f32>(texel, 0.0)).r;
+  let beadL = textureSampleLevel(maskTex, samp, surfUV - vec2<f32>(texel, 0.0), 0.0).r;
+  let beadR = textureSampleLevel(maskTex, samp, surfUV + vec2<f32>(texel, 0.0), 0.0).r;
   let edge = abs(beadR - beadL);
   col = col + params.edgeBead * 0.3 * edge * wetAmt;
 
