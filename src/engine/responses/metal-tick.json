@@ -1,0 +1,18 @@
+{
+  "id": "metal-tick",
+  "name": "Metal Tick",
+  "contactMode": "ring",
+  "atlasEntry": 0,
+  "lifetime": 0.35,
+  "radiusCurve": [0.0, 0.6, 0.8],
+  "heightCurve": [0.0, 1.0, 0.0],
+  "reboundProbability": 0.1,
+  "secondaryCount": 4,
+  "secondarySpeed": 1.6,
+  "secondarySpread": 0.5,
+  "directionalBias": 0.2,
+  "wetnessDeposit": 0.25,
+  "waterDeposit": 0.05,
+  "rippleImpulse": 0.15,
+  "visualGain": 1.1
+}

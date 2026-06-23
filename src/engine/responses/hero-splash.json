@@ -1,0 +1,18 @@
+{
+  "id": "hero-splash",
+  "name": "Hero Splash",
+  "contactMode": "crown",
+  "atlasEntry": 3,
+  "lifetime": 1.4,
+  "radiusCurve": [0.0, 1.2, 1.6],
+  "heightCurve": [0.0, 1.0, 0.6, 0.2, 0.0],
+  "reboundProbability": 0.4,
+  "secondaryCount": 12,
+  "secondarySpeed": 2.4,
+  "secondarySpread": 1.2,
+  "directionalBias": 0.3,
+  "wetnessDeposit": 0.8,
+  "waterDeposit": 0.4,
+  "rippleImpulse": 0.7,
+  "visualGain": 1.6
+}

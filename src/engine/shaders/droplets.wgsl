@@ -1,0 +1,84 @@
+// droplets.wgsl — instanced analytic ballistic droplets (build plan §15.2, §20
+// pass G). One instance per (impact, droplet-slot). Position is evaluated
+// directly from event time — no CPU particle integration:
+//   uv(age)    = uv0 + lateralVelocity * age
+//   height(age)= verticalVelocity * age - 0.5 * g * age^2
+// Height is projected along the art-directed surface normal.
+
+const MAX_DROPLETS: u32 = 12u;
+const GRAVITY: f32 = 9.8;
+
+@group(0) @binding(0) var<uniform> frame: Frame;
+@group(0) @binding(1) var<uniform> params: Params;
+@group(0) @binding(2) var<uniform> surface: Surface;
+@group(0) @binding(3) var<storage, read> impacts: array<Impact>;
+
+struct DropVSOut {
+  @builtin(position) pos: vec4<f32>,
+  @location(0) local: vec2<f32>,
+  @location(1) alpha: f32,
+};
+
+const QUAD = array<vec2<f32>, 6>(
+  vec2<f32>(-1.0, -1.0), vec2<f32>(1.0, -1.0), vec2<f32>(-1.0, 1.0),
+  vec2<f32>(-1.0, 1.0), vec2<f32>(1.0, -1.0), vec2<f32>(1.0, 1.0)
+);
+
+@vertex
+fn vs(@builtin(vertex_index) vid: u32, @builtin(instance_index) iid: u32) -> DropVSOut {
+  var out: DropVSOut;
+  let impIndex = iid / MAX_DROPLETS;
+  let slot = iid % MAX_DROPLETS;
+  let imp = impacts[impIndex];
+
+  let seed = u32(imp.responseSeed);
+  let a0 = rand01(seed, slot, 11u);
+  let a1 = rand01(seed, slot, 12u);
+  let a2 = rand01(seed, slot, 13u);
+
+  let ageFrames = frame.frameIndex - imp.birthFrame;
+  let lifeFrames = max(1.0, imp.lifetimeOv);
+  // droplet lives a fraction of the impact lifetime
+  let age = ageFrames / 30.0; // seconds at sim hz reference
+  let alive = ageFrames >= 0.0 && ageFrames <= lifeFrames;
+
+  // emit fraction of slots based on spread (acts as a count control)
+  let emit = a2 < clamp(0.3 + imp.spreadOv * 0.5, 0.0, 1.0);
+
+  if (!alive || !emit || surface.enabled < 0.5) {
+    out.pos = vec4<f32>(2.0, 2.0, 2.0, 1.0);
+    out.local = vec2<f32>(0.0);
+    out.alpha = 0.0;
+    return out;
+  }
+
+  let dir = a0 * 6.2831853;
+  let speed = (0.4 + a1) * params.spread * imp.spreadOv * 0.06;
+  let lateral = vec2<f32>(cos(dir), sin(dir)) * speed;
+  let vVel = (0.6 + a1 * 0.8) * params.splashHeight * imp.heightOv;
+  let h = max(0.0, vVel * age - 0.5 * GRAVITY * age * age * 0.4);
+
+  let imgUV0 = apply_h(surface.homographyFwd, imp.surfaceUV);
+  let center = imgUV0 + lateral * age + surface.normalDir * h;
+
+  let radius = 0.004 * imp.dropSize * (0.6 + 0.4 * a1);
+  let q = QUAD[vid];
+  let aspect = frame.resolution.x / max(frame.resolution.y, 1.0);
+  let p = center + vec2<f32>(q.x, q.y * aspect) * radius;
+
+  out.pos = vec4<f32>(p.x * 2.0 - 1.0, 1.0 - p.y * 2.0, 0.0, 1.0);
+  out.local = q;
+  out.alpha = (1.0 - ageFrames / lifeFrames) * imp.visualGain * params.visualGain;
+  return out;
+}
+
+@fragment
+fn fs(in: DropVSOut) -> @location(0) vec4<f32> {
+  let r = length(in.local);
+  if (r > 1.0) {
+    discard;
+  }
+  let d = smoothstep(1.0, 0.0, r) * in.alpha;
+  let rgb = vec3<f32>(0.85, 0.92, 1.0) * d;
+  return vec4<f32>(rgb, d);
+}
