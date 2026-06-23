@@ -43,6 +43,22 @@ docs/                     architecture, dawn-handoff, shader-bindings, runbook
 - `plugin.params.json` is the source of truth; `.wcx` look presets use the shared
   WC contract; scene state lives in versioned `.meteor.json`.
 
+## Deploy (GitHub Pages)
+
+Two paths:
+
+- **GitHub Actions** (`.github/workflows/deploy-pages.yml`) — auto-deploys on push
+  to `main`. Requires Actions runners enabled + Pages source = "GitHub Actions".
+- **No Actions** (works when runners are unavailable):
+  ```bash
+  npm run deploy:ghpages    # builds with base=/Meteor_SplashDemo/ and pushes gh-pages
+  ```
+  Then enable once: Settings → Pages → "Deploy from a branch" → `gh-pages` / root.
+  Live at `https://wildconstruct.github.io/Meteor_SplashDemo/`.
+
+> Note: WebGPU is required at runtime — the deployed page shows the unsupported
+> message in browsers without it.
+
 ## Testing
 
 ```bash

@@ -8,6 +8,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "deploy:ghpages": "bash scripts/deploy-ghpages.sh",
     "assets": "node scripts/make-demo-assets.mjs",
     "test": "npm run check:boundaries && npm run validate:wgsl && npm run validate:wcx && vitest run",
     "test:unit": "vitest run",
