@@ -19,13 +19,32 @@ export class BrowserHost {
 
   async init() {
     if (!BrowserHost.isSupported()) throw new Error('WebGPU is not available in this browser.');
-    this.adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
-    if (!this.adapter) throw new Error('No suitable GPU adapter found.');
 
-    this.device = await this.adapter.requestDevice({
-      // request only what we need; rgba16float storage/filterable is core in WebGPU.
-      requiredFeatures: [],
-    });
+    // Some devices (notably mobile GPUs) return null for a 'high-performance'
+    // adapter but succeed with the default or low-power request. Try in order.
+    for (const opts of [{ powerPreference: 'high-performance' }, {}, { powerPreference: 'low-power' }]) {
+      // eslint-disable-next-line no-await-in-loop
+      this.adapter = await navigator.gpu.requestAdapter(opts);
+      if (this.adapter) break;
+    }
+    if (!this.adapter) {
+      throw new Error('navigator.gpu.requestAdapter() returned null (no GPU adapter for any power preference).');
+    }
+
+    // Capture a short adapter description to aid on-screen diagnostics.
+    try {
+      const info = this.adapter.info || (this.adapter.requestAdapterInfo && await this.adapter.requestAdapterInfo());
+      if (info) this.adapterInfo = [info.vendor, info.architecture, info.description].filter(Boolean).join(' / ');
+    } catch { /* adapter info is best-effort */ }
+
+    try {
+      this.device = await this.adapter.requestDevice({
+        // request only what we need; rgba16float storage/filterable is core in WebGPU.
+        requiredFeatures: [],
+      });
+    } catch (e) {
+      throw new Error(`requestDevice failed: ${e?.message || e}`);
+    }
 
     this.device.lost.then((info) => {
       if (info.reason !== 'destroyed') this.onDeviceLost?.(info);

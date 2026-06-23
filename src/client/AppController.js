@@ -32,43 +32,66 @@ export class AppController {
   }
 
   async start() {
+    // True capability check: only this case is genuinely "WebGPU unavailable".
     if (!BrowserHost.isSupported()) {
-      this.dom.unsupported.hidden = false;
+      this._showStartupError(
+        'WebGPU is not available',
+        'navigator.gpu is undefined in this browser/context. WebGPU needs a '
+          + 'secure context (https) and a supporting browser. On iOS all browsers '
+          + 'share Safari’s setting (enable Settings → Safari → Advanced '
+          + '→ Feature Flags → WebGPU on iOS 17; on by default in iOS 18). '
+          + 'On Android use Chrome 121+.',
+      );
       return;
     }
-    this.host = new BrowserHost(this.dom.canvas);
+
+    // Everything past the capability check is a real startup error if it throws.
+    // Show the ACTUAL reason on screen — on mobile there is no console to read.
     try {
+      this.host = new BrowserHost(this.dom.canvas);
       await this.host.init();
+      this.host.onDeviceLost = (info) => this._handleDeviceLost(info);
+
+      const shaderSources = loadShaderSources();
+      this.engine = await MeteorEngine.create({
+        device: this.host.device,
+        queue: this.host.queue,
+        outputFormat: this.host.format,
+        shaderSources,
+        diagnostics: (d) => this._onDiagnostic(d),
+      });
+
+      const micro = await loadMicroNormal(this.host.device, MICRO_URL);
+      this.engine.registerAssets({ microNormal: micro });
+
+      // load the default scene's plate + project BEFORE building UI (timeline/editor
+      // read state.project on construction).
+      const scene = getScene(DEFAULT_SCENE_ID);
+      this.currentSceneId = scene.id;
+      await this._loadPlate(scene.plateUrl);
+      this._loadProject(structuredClone(scene.project));
+
+      this._buildUI();
+      this.state.addEventListener('change', (e) => this._onStateChange(e));
+      this._loop();
+      this.notify.info('Meteor demo ready — pick a scene, drag a rain field, raise density.');
     } catch (e) {
-      this.dom.unsupported.hidden = false;
-      this.dom.unsupported.querySelector('p').textContent = e.message;
-      return;
+      const detail = `${e?.name || 'Error'}: ${e?.message || String(e)}`
+        + (this.host?.adapterInfo ? `  [adapter: ${this.host.adapterInfo}]` : '');
+      this._showStartupError('Couldn’t start the demo', detail);
+      // eslint-disable-next-line no-console
+      if (typeof console !== 'undefined') console.error('[meteor] startup failed:', e);
     }
-    this.host.onDeviceLost = (info) => this._handleDeviceLost(info);
+  }
 
-    const shaderSources = loadShaderSources();
-    this.engine = await MeteorEngine.create({
-      device: this.host.device,
-      queue: this.host.queue,
-      outputFormat: this.host.format,
-      shaderSources,
-      diagnostics: (d) => this._onDiagnostic(d),
-    });
-
-    const micro = await loadMicroNormal(this.host.device, MICRO_URL);
-    this.engine.registerAssets({ microNormal: micro });
-
-    // load the default scene's plate + project BEFORE building UI (timeline/editor
-    // read state.project on construction).
-    const scene = getScene(DEFAULT_SCENE_ID);
-    this.currentSceneId = scene.id;
-    await this._loadPlate(scene.plateUrl);
-    this._loadProject(structuredClone(scene.project));
-
-    this._buildUI();
-    this.state.addEventListener('change', (e) => this._onStateChange(e));
-    this._loop();
-    this.notify.info('Meteor demo ready — pick a scene, drag a rain field, raise density.');
+  _showStartupError(title, detail) {
+    const el = this.dom.unsupported;
+    if (!el) return;
+    const h2 = el.querySelector('h2');
+    const p = el.querySelector('p');
+    if (h2) h2.textContent = title;
+    if (p) p.textContent = detail;
+    el.hidden = false;
   }
 
   /** Switch to a bundled scene (plate image + its starter project). */
