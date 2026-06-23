@@ -503,13 +503,16 @@ export class MeteorEngine {
       usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
     });
 
+    // Uniform buffers must exist (and flowUniform must be populated) BEFORE
+    // _uploadStatic runs: _uploadStatic -> _buildFlow binds rt.flowUniform.
+    rt.surfaceUniform ??= this.device.createBuffer({ size: 112, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    rt.flowUniform ??= this.device.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    this._writeSurfaceUniform(rt);
+
     if (!rt.staticUploaded) {
       this._uploadStatic(rt);
       rt.staticUploaded = true;
     }
-    rt.surfaceUniform ??= this.device.createBuffer({ size: 112, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
-    rt.flowUniform ??= this.device.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
-    this._writeSurfaceUniform(rt);
   }
 
   _writeSurfaceUniform(rt) {
