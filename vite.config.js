@@ -4,6 +4,9 @@ import { defineConfig } from 'vite';
 // raw source strings (see src/client/ShaderSourceManifest.js) and handed to the
 // host-neutral engine — they are never dynamically generated.
 export default defineConfig({
+  // GitHub Pages project sites serve under /<repo>/. Set BASE_PATH in CI; defaults
+  // to '/' for local dev.
+  base: process.env.BASE_PATH || '/',
   root: '.',
   server: {
     port: 5173,

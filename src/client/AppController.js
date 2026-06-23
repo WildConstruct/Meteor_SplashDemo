@@ -16,11 +16,10 @@ import { PresetBar } from './ui/PresetBar.js';
 import { ProjectMenu } from './ui/ProjectMenu.js';
 import { ChipStack } from './ui/ChipStack.js';
 import { Notifications } from './ui/Notifications.js';
+import { ScenePicker } from './ui/ScenePicker.js';
+import { getScene, DEFAULT_SCENE_ID } from './projects/scenes.js';
 
-import demoProjectRaw from './projects/car-hood-demo.meteor.json';
-
-const PLATE_URL = '/assets/demo/car-hood-demo.png';
-const MICRO_URL = '/assets/normals/wet-micro-normal.png';
+const MICRO_URL = `${import.meta.env.BASE_URL}assets/normals/wet-micro-normal.png`;
 
 export class AppController {
   constructor(dom) {
@@ -56,27 +55,58 @@ export class AppController {
       diagnostics: (d) => this._onDiagnostic(d),
     });
 
-    await this._loadAssets();
-    this._loadProject(structuredClone(demoProjectRaw));
+    const micro = await loadMicroNormal(this.host.device, MICRO_URL);
+    this.engine.registerAssets({ microNormal: micro });
+
+    // load the default scene's plate + project BEFORE building UI (timeline/editor
+    // read state.project on construction).
+    const scene = getScene(DEFAULT_SCENE_ID);
+    this.currentSceneId = scene.id;
+    await this._loadPlate(scene.plateUrl);
+    this._loadProject(structuredClone(scene.project));
+
     this._buildUI();
     this.state.addEventListener('change', (e) => this._onStateChange(e));
     this._loop();
-    this.notify.info('Meteor demo ready — drag a rain field toward the hood intake.');
+    this.notify.info('Meteor demo ready — pick a scene, drag a rain field, raise density.');
   }
 
-  async _loadAssets() {
+  /** Switch to a bundled scene (plate image + its starter project). */
+  async loadScene(sceneId) {
+    const scene = getScene(sceneId);
+    this.currentSceneId = scene.id;
+    await this._loadPlate(scene.plateUrl);
+    this._loadProject(structuredClone(scene.project));
+    if (this.timeline) {
+      this.timeline.clock.durationFrames = this.state.project.durationFrames;
+      this.timeline.jumpTo(0);
+    }
+    this.paramPanel?.syncAll();
+    this.notify.info(`Loaded scene: ${scene.name}`);
+  }
+
+  /** Load a user-uploaded plate, keeping the current project (re-calibrate). */
+  async loadUploadedPlate(file) {
     try {
-      const bmp = await loadImageBitmap(PLATE_URL);
+      const bmp = await createImageBitmap(file, { colorSpaceConversion: 'none' });
+      this.inputTexture = uploadImageTexture(this.host.device, bmp, 'plate');
+      this.plateSize = { width: bmp.width, height: bmp.height };
+      this.notify.info('Custom plate loaded — recalibrate surfaces if needed.');
+    } catch (e) {
+      this.notify.error(`Plate load failed: ${e.message}`);
+    }
+  }
+
+  async _loadPlate(url) {
+    try {
+      const bmp = await loadImageBitmap(url);
       this.inputTexture = uploadImageTexture(this.host.device, bmp, 'plate');
       this.plateSize = { width: bmp.width, height: bmp.height };
     } catch (e) {
-      this.notify.warn(`Demo plate missing (${e.message}); run "npm run assets".`);
-      // 1x1 fallback so the pipeline still runs
+      this.notify.warn(`Plate missing (${e.message}); run "npm run assets".`);
       this.inputTexture = uploadImageTexture(this.host.device, await blankBitmap(), 'plate');
       this.plateSize = { width: 1920, height: 1080 };
     }
-    const micro = await loadMicroNormal(this.host.device, MICRO_URL);
-    this.engine.registerAssets({ microNormal: micro });
   }
 
   _loadProject(json) {
@@ -90,6 +120,10 @@ export class AppController {
   }
 
   _buildUI() {
+    new ScenePicker(this.dom.scenePicker, {
+      onScene: (id) => this.loadScene(id),
+      onUpload: (file) => this.loadUploadedPlate(file),
+    });
     new ChipStack(this.dom.chipStack, this.state, { notify: this.notify });
     this.paramPanel = new ParameterPanel(this.dom.paramPanel, this.state);
     this.debugPanel = new DebugPanel(this.dom.debugPanel, this.state, {
@@ -212,7 +246,9 @@ export class AppController {
       outputFormat: this.host.format, shaderSources,
       diagnostics: (d) => this._onDiagnostic(d),
     });
-    await this._loadAssets();
+    const micro = await loadMicroNormal(this.host.device, MICRO_URL);
+    this.engine.registerAssets({ microNormal: micro });
+    await this._loadPlate(getScene(this.currentSceneId).plateUrl);
     this.engine.setProject(this.state.project);
     this.engine.setParameters(this.state.params);
     this._loop();

@@ -10,6 +10,7 @@ const dom = {
   paramPanel: document.getElementById('parameter-panel-mount'),
   debugPanel: document.getElementById('debug-panel-mount'),
   presetBar: document.getElementById('preset-bar-mount'),
+  scenePicker: document.getElementById('scene-picker-mount'),
   projectMenu: document.getElementById('project-menu-mount'),
   timeline: document.getElementById('timeline-mount'),
   notifications: document.getElementById('notifications-mount'),

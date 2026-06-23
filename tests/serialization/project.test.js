@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve, join } from 'node:path';
 import {
@@ -40,6 +40,17 @@ describe('ProjectSchema', () => {
   it('migrateProject returns current schema version', () => {
     const migrated = migrateProject(demo);
     expect(migrated.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+  });
+
+  it('every bundled scene project validates', () => {
+    const dir = resolve(here, '../../src/client/projects');
+    const files = readdirSync(dir).filter((f) => f.endsWith('.meteor.json'));
+    expect(files.length).toBeGreaterThanOrEqual(4);
+    for (const f of files) {
+      const json = JSON.parse(readFileSync(join(dir, f), 'utf8'));
+      const result = validateProject(migrateProject(json));
+      expect(result.errors, `${f}: ${result.errors.join(', ')}`).toEqual([]);
+    }
   });
 
   it('round-trips through JSON without losing scene state', () => {

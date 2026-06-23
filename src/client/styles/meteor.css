@@ -32,7 +32,8 @@ body {
   border-radius: 6px; padding: 5px 9px; cursor: pointer; font-size: 12px;
 }
 #topbar button:hover { border-color: var(--accent); }
-.preset-bar, .project-menu { display: inline-flex; gap: 6px; }
+.preset-bar, .project-menu, .scene-picker { display: inline-flex; gap: 6px; }
+.scene-picker select { max-width: 320px; }
 
 #workspace { display: grid; grid-template-columns: 1fr 340px; overflow: hidden; }
 
