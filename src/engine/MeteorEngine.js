@@ -81,6 +81,11 @@ export class MeteorEngine {
       });
     for (const f of SHADER_FILES) this.modules[f] = module(f);
 
+    // Surface the ROOT shader-compilation error (Dawn/Tint is stricter than the
+    // naga CI validator). Without this, a single bad module cascades into
+    // thousands of "Invalid RenderPipeline" messages with no usable cause.
+    await this._reportShaderCompilation();
+
     this.samplers.linear = dev.createSampler({
       magFilter: 'linear', minFilter: 'linear',
       addressModeU: 'clamp-to-edge', addressModeV: 'clamp-to-edge',
@@ -100,6 +105,28 @@ export class MeteorEngine {
 
     const err = await dev.popErrorScope();
     if (err) this.emit(makeDiagnostic('error', 'init', err.message));
+  }
+
+  // Inspect every shader module's compilation messages and report the first real
+  // errors with file + line, to both the diagnostics channel and the console.
+  async _reportShaderCompilation() {
+    for (const [file, mod] of Object.entries(this.modules)) {
+      if (!mod || typeof mod.getCompilationInfo !== 'function') continue;
+      let info;
+      try {
+        info = await mod.getCompilationInfo();
+      } catch {
+        continue;
+      }
+      for (const m of info.messages) {
+        if (m.type !== 'error') continue;
+        const where = `${file}.wgsl:${m.lineNum}:${m.linePos}`;
+        const msg = `shader ${where} — ${m.message}`;
+        this.emit(makeDiagnostic('error', 'shader', msg));
+        // eslint-disable-next-line no-console
+        if (typeof console !== 'undefined') console.error(`[meteor] ${msg}`);
+      }
+    }
   }
 
   _createPipelines() {
