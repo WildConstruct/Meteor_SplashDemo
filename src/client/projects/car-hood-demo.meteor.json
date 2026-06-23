@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 1,
+  "projectId": "car-hood-demo",
+  "sourcePlate": { "assetId": "demo/car-hood-demo.png", "width": 1920, "height": 1080 },
+  "durationFrames": 240,
+  "frameRate": 30,
+  "globalSeed": 1337,
+  "palettes": [
+    {
+      "id": "metal-mix",
+      "name": "Metal Mix",
+      "entries": [
+        { "responseId": "metal-tick", "weight": 0.6 },
+        { "responseId": "metal-bounce", "weight": 0.4 }
+      ]
+    },
+    { "id": "puddle", "name": "Puddle", "entries": [{ "responseId": "puddle-crown", "weight": 1.0 }] }
+  ],
+  "surfaces": [
+    {
+      "id": "hood",
+      "name": "Hood",
+      "enabled": true,
+      "renderOrder": 0,
+      "simulationResolution": 256,
+      "normalDirection": -1.5708,
+      "normalScale": 0.05,
+      "materialResponseId": "metal-tick",
+      "maskPath": [
+        { "u": 0.30, "v": 0.40 },
+        { "u": 0.70, "v": 0.40 },
+        { "u": 0.78, "v": 0.62 },
+        { "u": 0.22, "v": 0.62 }
+      ],
+      "calibrationQuad": [
+        { "x": 0.30, "y": 0.40 },
+        { "x": 0.70, "y": 0.40 },
+        { "x": 0.78, "y": 0.62 },
+        { "x": 0.22, "y": 0.62 }
+      ],
+      "flow": { "baseFlow": { "x": 0.0, "y": 0.45 }, "bias": { "x": 0.0, "y": 0.0 } },
+      "reliefLayers": [
+        {
+          "id": "intake",
+          "surfaceId": "hood",
+          "mode": "raised",
+          "height": 1.0,
+          "softness": 0.06,
+          "flowDeflection": 1.0,
+          "boundaryWrap": 1.0,
+          "enabled": false,
+          "shape": { "type": "ellipse", "center": { "u": 0.5, "v": 0.42 }, "radius": { "u": 0.16, "v": 0.08 }, "rotation": 0.0 }
+        }
+      ],
+      "rainFields": [
+        {
+          "id": "focused-hood-rain",
+          "name": "Focused Hood Rain",
+          "enabled": true,
+          "surfaceId": "hood",
+          "placementSeed": 11,
+          "responseSeed": 23,
+          "centerUV": { "u": 0.5, "v": 0.55 },
+          "scaleUV": { "x": 0.28, "y": 0.22 },
+          "rotation": 0.0,
+          "density": 0.4,
+          "falloff": 0.3,
+          "ratePerSecond": 40,
+          "startFrame": 0,
+          "endFrame": 240,
+          "dropSizeRange": [0.4, 1.2],
+          "velocityRange": [0.6, 1.4],
+          "incomingDirection": -1.5708,
+          "paletteId": null,
+          "poolSize": 256
+        }
+      ]
+    },
+    {
+      "id": "ground",
+      "name": "Ground",
+      "enabled": true,
+      "renderOrder": 1,
+      "simulationResolution": 256,
+      "normalDirection": -1.5708,
+      "normalScale": 0.03,
+      "materialResponseId": "puddle-crown",
+      "maskPath": [
+        { "u": 0.05, "v": 0.70 },
+        { "u": 0.95, "v": 0.70 },
+        { "u": 0.98, "v": 0.98 },
+        { "u": 0.02, "v": 0.98 }
+      ],
+      "calibrationQuad": [
+        { "x": 0.05, "y": 0.70 },
+        { "x": 0.95, "y": 0.70 },
+        { "x": 0.98, "y": 0.98 },
+        { "x": 0.02, "y": 0.98 }
+      ],
+      "flow": { "baseFlow": { "x": 0.0, "y": 0.25 }, "bias": { "x": 0.0, "y": 0.0 } },
+      "reliefLayers": [],
+      "rainFields": [
+        {
+          "id": "ground-puddle",
+          "name": "Ground Puddle Rain",
+          "enabled": true,
+          "surfaceId": "ground",
+          "placementSeed": 41,
+          "responseSeed": 57,
+          "centerUV": { "u": 0.5, "v": 0.5 },
+          "scaleUV": { "x": 0.42, "y": 0.3 },
+          "rotation": 0.0,
+          "density": 0.3,
+          "falloff": 0.2,
+          "ratePerSecond": 30,
+          "startFrame": 0,
+          "endFrame": 240,
+          "dropSizeRange": [0.6, 1.6],
+          "velocityRange": [0.5, 1.2],
+          "incomingDirection": -1.5708,
+          "paletteId": "puddle",
+          "poolSize": 256
+        }
+      ]
+    }
+  ],
+  "heroEvents": [],
+  "selectedIds": [],
+  "viewportState": { "zoom": 1, "panX": 0, "panY": 0 }
+}

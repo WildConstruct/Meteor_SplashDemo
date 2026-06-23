@@ -1,0 +1,131 @@
+{
+  "_format": "wcx",
+  "_plugin": "meteor",
+  "_wcxVersion": 1,
+  "name": "Heavy Puddle",
+  "category": "Puddle",
+  "created": "2026-06-23",
+  "thumbnail": null,
+  "params": [
+    {
+      "uuid": "169396c0-910c-4621-82e0-9b3b64b7fa8d",
+      "id": "visualGain",
+      "value": 1
+    },
+    {
+      "uuid": "f31b99fd-616c-4170-9ec5-195e59e46f6b",
+      "id": "splashHeight",
+      "value": 1.2
+    },
+    {
+      "uuid": "ee79d005-2ee9-47ca-8578-d5b2ffeb5bf7",
+      "id": "splashWidth",
+      "value": 1.8
+    },
+    {
+      "uuid": "01e67761-19a4-438d-b2d9-c4839187e0ed",
+      "id": "bounce",
+      "value": 0.3
+    },
+    {
+      "uuid": "280239e7-4e1d-4a53-95f5-f67b11f75612",
+      "id": "spread",
+      "value": 1.6
+    },
+    {
+      "uuid": "6785a040-1dd4-4983-9de8-d8e1de588c77",
+      "id": "lifetime",
+      "value": 1
+    },
+    {
+      "uuid": "8886e956-a828-44ae-b635-0b5a7f4f5b8c",
+      "id": "wetnessDeposit",
+      "value": 1
+    },
+    {
+      "uuid": "f6712f59-a785-454f-b4a0-b2f450f2a291",
+      "id": "flowSpeed",
+      "value": 1.4
+    },
+    {
+      "uuid": "aad832c9-5ae2-4c9a-a543-5c270de5b81e",
+      "id": "evaporation",
+      "value": 0.08
+    },
+    {
+      "uuid": "73215537-c432-41c1-837a-5e9f98920bf8",
+      "id": "reliefHeight",
+      "value": 1
+    },
+    {
+      "uuid": "d68aa46a-3cae-4cd6-9489-d19ac5ed4d6b",
+      "id": "reliefSoftness",
+      "value": 0.08
+    },
+    {
+      "uuid": "1e20fa2a-a8c8-42dd-a4fc-0c582c4b884a",
+      "id": "flowDeflection",
+      "value": 1
+    },
+    {
+      "uuid": "4f9ba7c5-2aa6-4470-a945-fb77bb9a0ff2",
+      "id": "boundaryWrap",
+      "value": 1
+    },
+    {
+      "uuid": "b6dc5be1-1cbb-4532-936d-508e70e38663",
+      "id": "wetDarkening",
+      "value": 0.9
+    },
+    {
+      "uuid": "c7813214-3b22-4318-808a-feff01ab8a0f",
+      "id": "saturationShift",
+      "value": 0.4
+    },
+    {
+      "uuid": "b3e44e59-8641-4e35-b623-0f353c368a20",
+      "id": "specularGain",
+      "value": 1.4
+    },
+    {
+      "uuid": "01c6e123-2fc6-4ff0-a2b4-4e3901359347",
+      "id": "specularWidth",
+      "value": 0.8
+    },
+    {
+      "uuid": "e79f5bd6-f36e-4713-a81b-b8a8876600ac",
+      "id": "specularDirection",
+      "value": 0.7
+    },
+    {
+      "uuid": "4be1ca07-158e-477c-b78c-e4b971e71ce3",
+      "id": "microNormalStrength",
+      "value": 0.5
+    },
+    {
+      "uuid": "d5dfc666-6139-4475-b845-2db2ac246685",
+      "id": "flowStreakStrength",
+      "value": 0.5
+    },
+    {
+      "uuid": "07961019-50a9-4f3e-83b2-64ea4bf2a7e4",
+      "id": "rippleNormalStrength",
+      "value": 1
+    },
+    {
+      "uuid": "833d8fd3-ae73-453b-a403-89029f7d37af",
+      "id": "poolHighlight",
+      "value": 1.2
+    },
+    {
+      "uuid": "09610d9c-068d-4250-b2fb-a54a6cc36248",
+      "id": "distortion",
+      "value": 0.8
+    },
+    {
+      "uuid": "4ae59814-752d-40cc-a960-c2e3b6197ab1",
+      "id": "edgeBead",
+      "value": 0.5
+    }
+  ]
+}
