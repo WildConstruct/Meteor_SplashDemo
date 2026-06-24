@@ -105,34 +105,50 @@ fn fs(in: VSOut) -> @location(0) vec4<f32> {
   let micro = textureSampleLevel(microTex, samp, surfUV * 6.0, 0.0).xy * 2.0 - 1.0;
   n = normalize(n + vec3<f32>(micro * params.microNormalStrength * 0.3 * wetAmt, 0.0));
 
-  // ---- reflect the plate itself, distorted by the ripple normals. A wet film
-  // mirrors its surroundings; with only a flat plate to sample we offset the
-  // plate read along the ripple normal, so each ring warps the reflection of the
-  // nearby ground and its bright reflected-light streaks (the "wet" tell). ----
-  let reflectUV = imgUV + n.xy * (0.04 + 0.08 * params.distortion);
-  let reflected = textureSampleLevel(colorIn, samp, reflectUV, 0.0).rgb;
+  // ---- Real water surface: Fresnel blend of REFRACTION (the bottom seen
+  // through the film) and REFLECTION (what's above the surface), plus a sharp
+  // specular glint. Same model as ThinMatrix / chinedufn water; with a single
+  // locked plate we sample the plate as both the refracted bottom AND (offset
+  // toward the horizon) the reflection. Because the ground is drawn in
+  // perspective, the view is GRAZING toward the far edge (surfUV.y -> 0), so
+  // Fresnel makes the puddle mirror-like in the distance and transparent up
+  // close — which is exactly why reference puddle photos look so reflective. ----
+  let distMag = 0.015 + 0.05 * params.distortion;
 
-  // dark wet substrate, then blend the distorted reflection in by wetness/pooling
-  let wetBase = base * (1.0 - params.wetDarkening * 0.6 * wetAmt);
-  var col = mix(base, mix(wetBase, reflected, 0.5 + 0.3 * pool), wetAmt);
+  // REFRACTION: darkened, ripple-distorted view of the ground beneath the film.
+  let refrUV = imgUV + n.xy * distMag;
+  let bottom = textureSampleLevel(colorIn, samp, refrUV, 0.0).rgb;
+  let refrCol = bottom * (1.0 - params.wetDarkening * 0.7 * wetAmt);
+
+  // REFLECTION: sample the plate offset toward the horizon (what's "above" the
+  // puddle in the scene), ripple-distorted, tinted cool and lifted by bright
+  // reflected-light streaks. This is the vertical reflection you see in puddles.
+  let grazing = clamp(1.0 - surfUV.y, 0.0, 1.0);
+  let upY = clamp(imgUV.y - (0.06 + 0.28 * grazing) - n.y * distMag * 2.0, 0.0, 1.0);
+  let aboveCol = textureSampleLevel(colorIn, samp, vec2<f32>(imgUV.x + n.x * distMag * 1.5, upY), 0.0).rgb;
+  // With no real environment to mirror, the reflection is a cool sky tint
+  // brightened by how bright the scene above the puddle is (so reflected lights
+  // still read) — this avoids banding the plate's own content into the puddle.
+  let skyTint = vec3<f32>(0.55, 0.64, 0.80);
+  let reflCol = skyTint * (0.55 + 0.9 * luminance(aboveCol)) + skyTint * ripSlope * 0.5;
+
+  // Fresnel: rises toward the grazing far edge and on tilted ripple flanks.
+  let fres = clamp(mix(0.06, 0.9, grazing * grazing) + fresnelTilt(n) * 0.8, 0.0, 1.0);
+
+  let waterCol = mix(refrCol, reflCol, fres);
+  var col = mix(base, waterCol, wetAmt);
   let lum = luminance(col);
   col = mix(vec3<f32>(lum), col, 1.0 + params.saturationShift * wetAmt);
 
-  // ---- ring rims: the bright leading edge of each spreading ring. Fresnel on
-  // the tilted ripple flanks plus a moderate slope term, clamped so flat areas
-  // (n.z ~ 1, slope ~ 0) stay calm and only the ring crests pick up sheen. ----
-  let fres = fresnelTilt(n);
-  let sheen = vec3<f32>(0.62, 0.70, 0.82);
-  let ring = clamp(ripSlope * params.rippleNormalStrength * 2.2, 0.0, 1.0);
-  col = col + sheen * (fres * (0.5 + 0.6 * pool) + ring * 0.6) * wetAmt;
+  // ---- specular glint (Blinn-Phong; view looks straight down at the film) ----
+  let lightDir = normalize(vec3<f32>(cos(params.specularDirection), sin(params.specularDirection), 0.55));
+  let halfV = normalize(lightDir + vec3<f32>(0.0, 0.0, 1.0));
+  let spec = pow(max(dot(n, halfV), 0.0), mix(18.0, 220.0, 1.0 - clamp(params.specularWidth, 0.0, 1.0)));
+  col = col + spec * params.specularGain * (0.4 + 0.7 * wetAmt);
 
-  // ---- sharp specular glint (sun / streetlight skimming the wet surface) ----
-  let lightDir = normalize(vec3<f32>(cos(params.specularDirection), sin(params.specularDirection), 0.85));
-  let spec = pow(max(dot(n, lightDir), 0.0), mix(120.0, 18.0, clamp(params.specularWidth, 0.0, 1.0)));
-  col = col + spec * params.specularGain * (0.4 + 0.6 * wetAmt);
-
-  // ---- reflective pooling: standing water mirrors more + glints brighter ----
-  col = col + params.poolHighlight * 0.5 * pool * (spec + 0.08);
+  // ---- reflective pooling: standing water is more mirror-like + glints harder.
+  col = mix(col, reflCol, pool * 0.4 * params.poolHighlight);
+  col = col + params.poolHighlight * 0.4 * pool * spec;
 
   // ---- flow streaks (subtle directional smear on the wet sheen) ----
   let streak = sin((surfUV.x * flow.y - surfUV.y * flow.x) * 60.0) * 0.5 + 0.5;
