@@ -64,6 +64,18 @@ values are effective (response × global). Use `arrayLength(&impacts)` for count
 
 ## Per-shader bind groups
 
+> **Explicit layouts (Dawn/Tint pruning).** Two bindings below are part of the
+> contract but are not *statically sampled* by the current WGSL: `wet_composite`
+> binding 0 (`Frame`) and `wet_update` binding 5 (`reliefTex`). Dawn/Tint prunes
+> unused bindings from a `layout:'auto'` pipeline, after which `createBindGroup`
+> fails with *"binding index N not present in the bind group layout"* (cascading
+> into a flood of "Invalid RenderPipeline" errors in-browser). naga does no such
+> pruning, so the CI gate misses it. `MeteorEngine._createPipelines` therefore
+> pins **explicit** `GPUBindGroupLayout`/`GPUPipelineLayout` for `wet_update` and
+> `wet_composite`, keeping these binding numbers stable for the Dawn port. A Dawn
+> host should likewise use explicit layouts. Reproduce locally against real Tint
+> with `node scripts/headless-render.mjs` (needs `npm i -D @kmamal/gpu`).
+
 | shader | binding → resource |
 |---|---|
 | `plate_linearize` (render) | 0 inputTex `texture_2d<f32>`, 1 sampler |

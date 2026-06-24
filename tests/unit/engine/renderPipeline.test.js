@@ -24,6 +24,9 @@ beforeAll(() => {
   globalThis.GPUBufferUsage = {
     UNIFORM: 1, STORAGE: 2, COPY_SRC: 4, COPY_DST: 8,
   };
+  // Engine pins explicit bind-group layouts for wet_update/wet_composite (the
+  // layout:'auto' pruning fix); it reads GPUShaderStage at pipeline creation.
+  globalThis.GPUShaderStage = { VERTEX: 1, FRAGMENT: 2, COMPUTE: 4 };
 });
 
 function makeMockDevice() {
@@ -46,6 +49,8 @@ function makeMockDevice() {
       width: d.size.width, height: d.size.height, format: d.format,
       createView: () => ({ __view: true }), destroy() {},
     }),
+    createBindGroupLayout: (d) => ({ __bgl: true, ...d }),
+    createPipelineLayout: (d) => ({ __pipelineLayout: true, ...d }),
     createComputePipeline: () => ({ getBindGroupLayout: () => ({}) }),
     createRenderPipeline: () => ({ getBindGroupLayout: () => ({}) }),
     createCommandEncoder: () => encoder,

@@ -5,3 +5,4 @@ dist/
 test-results/
 playwright-report/
 tests/visual/diff/
+tmp-renders/

@@ -99,7 +99,16 @@ export class MeteorEngine {
     const ub = (size) => dev.createBuffer({ size, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
     this.uniformBuffers.frame = ub(32);
     this.uniformBuffers.params = ub(112);
-    this.uniformBuffers.composite = ub(16);
+    // Two CompositeConfig buffers with fixed encode flags, written ONCE. The
+    // per-surface composite passes (encode=0, stay linear) and the final encode
+    // pass (encode=1, linear->sRGB) all record into one command encoder and are
+    // submitted together; a single shared buffer rewritten via queue.writeBuffer
+    // is last-write-wins, so every pass saw encode=1 and the image was sRGB-
+    // encoded 3x (washed-out, low-contrast). Separate buffers remove the race.
+    this.uniformBuffers.compositeLinear = ub(16);
+    this.uniformBuffers.compositeEncode = ub(16);
+    this.queue.writeBuffer(this.uniformBuffers.compositeLinear, 0, packCompositeConfig({ encode: 0 }));
+    this.queue.writeBuffer(this.uniformBuffers.compositeEncode, 0, packCompositeConfig({ encode: 1 }));
 
     this._createPipelines();
 
@@ -133,6 +142,40 @@ export class MeteorEngine {
     const dev = this.device;
     const fmtLinear = 'rgba16float';
 
+    // Two shaders bind resources that belong to the documented Dawn binding
+    // contract (docs/shader-bindings.md) but are not statically sampled by the
+    // current implementation: wet_composite's Frame (binding 0) and wet_update's
+    // relief texture (binding 5). With layout:'auto', Tint/Dawn PRUNES bindings a
+    // shader never references from the derived layout — so the bind groups the
+    // engine builds later fail validation with "binding index N not present in the
+    // bind group layout" (which cascades in-browser into a flood of "Invalid
+    // RenderPipeline" errors). naga does no such pruning, so its CI gate passes.
+    // Pin explicit layouts for these two pipelines so the bindings the engine
+    // provides always match the contract, regardless of in-shader usage.
+    const stage = (typeof GPUShaderStage !== 'undefined')
+      ? GPUShaderStage : { VERTEX: 1, FRAGMENT: 2, COMPUTE: 4 };
+    const uni = (b, vis) => ({ binding: b, visibility: vis, buffer: { type: 'uniform' } });
+    const tex = (b, vis) => ({ binding: b, visibility: vis, texture: { sampleType: 'float' } });
+    const samp = (b, vis) => ({ binding: b, visibility: vis, sampler: { type: 'filtering' } });
+    const wstore = (b, vis) => ({ binding: b, visibility: vis, storageTexture: { access: 'write-only', format: fmtLinear } });
+
+    const wetUpdateBGL = dev.createBindGroupLayout({
+      entries: [
+        uni(0, stage.COMPUTE), uni(1, stage.COMPUTE),
+        tex(2, stage.COMPUTE), tex(3, stage.COMPUTE), tex(4, stage.COMPUTE),
+        tex(5, stage.COMPUTE), tex(6, stage.COMPUTE), samp(7, stage.COMPUTE),
+        wstore(8, stage.COMPUTE),
+      ],
+    });
+    const compositeBGL = dev.createBindGroupLayout({
+      entries: [
+        uni(0, stage.FRAGMENT), uni(1, stage.FRAGMENT), uni(2, stage.FRAGMENT),
+        tex(3, stage.FRAGMENT), tex(4, stage.FRAGMENT), tex(5, stage.FRAGMENT),
+        tex(6, stage.FRAGMENT), tex(7, stage.FRAGMENT), tex(8, stage.FRAGMENT),
+        samp(9, stage.FRAGMENT), uni(10, stage.FRAGMENT),
+      ],
+    });
+
     this.pipelines.linearize = dev.createRenderPipeline({
       layout: 'auto',
       vertex: { module: this.modules.plate_linearize, entryPoint: 'vs' },
@@ -145,7 +188,7 @@ export class MeteorEngine {
       compute: { module: this.modules.deposit_stamp, entryPoint: 'main' },
     });
     this.pipelines.wetUpdate = dev.createComputePipeline({
-      layout: 'auto',
+      layout: dev.createPipelineLayout({ bindGroupLayouts: [wetUpdateBGL] }),
       compute: { module: this.modules.wet_update, entryPoint: 'main' },
     });
     this.pipelines.reliefGradient = dev.createComputePipeline({
@@ -157,9 +200,12 @@ export class MeteorEngine {
       compute: { module: this.modules.flow_build, entryPoint: 'main' },
     });
 
-    // composite has two pipelines: linear intermediate + final encode (output fmt)
+    // composite has two pipelines: linear intermediate + final encode (output fmt).
+    // Both share the explicit composite layout (binding 0 Frame is in the contract
+    // but unused by the shader, so layout:'auto' would otherwise drop it).
+    const compositeLayout = dev.createPipelineLayout({ bindGroupLayouts: [compositeBGL] });
     const compositeFor = (format) => dev.createRenderPipeline({
-      layout: 'auto',
+      layout: compositeLayout,
       vertex: { module: this.modules.wet_composite, entryPoint: 'vs' },
       fragment: { module: this.modules.wet_composite, entryPoint: 'fs', targets: [{ format }] },
       primitive: { topology: 'triangle-list' },
@@ -195,7 +241,14 @@ export class MeteorEngine {
   setProject(project) {
     this.project = project;
     this._compileProject();
-    this._invalidateIfHistoryChanged(true);
+    // Reset the wet-state sim ONLY when the cache key actually changes (topology,
+    // look params, seed, resolution, frame rate) — not on every setProject. A
+    // forced reset here made each rain-field tweak replay the whole simulation
+    // from frame 0, which is what made the field controls feel frozen. Field
+    // density/rotation/falloff are deliberately NOT part of the cache key
+    // (docs/shader-bindings + EngineContracts.buildCacheKey), so editing them now
+    // takes effect from the current frame forward without a full resim.
+    this._invalidateIfHistoryChanged(false);
   }
 
   registerAssets(assets) {
@@ -267,12 +320,22 @@ export class MeteorEngine {
       events = resolveResponses(events, palettes, 'metal-tick');
       events = applySuppression(events, heroSuppressed);
 
+      // maskPath is authored in IMAGE UV, but every shader samples the mask in
+      // SURFACE UV (the sim texture is surface-space). Transform the polygon
+      // image->surface before rasterizing, otherwise the mask lands in a corner
+      // of the texture and the surface centre reads mask=0 (wet effect missing
+      // across most of the surface).
+      const maskPoly = (surface.maskPath ?? []).map((p) => {
+        const [su, sv] = transforms.imageToSurface(p.u ?? p.x, p.v ?? p.y);
+        return { u: su, v: sv };
+      });
+
       this.surfaceRuntime.set(surface.id, {
         surface,
         transforms,
         res,
         events,
-        maskData: rasterizeMask(surface.maskPath ?? [], res, res),
+        maskData: rasterizeMask(maskPoly, res, res),
         reliefData: rasterizeRelief(surface.reliefLayers ?? [], res, res, this.params.toObject()),
         flowConfig: surface.flow ?? { baseFlow: { x: 0, y: 0.3 }, bias: { x: 0, y: 0 } },
         simInitialized: false,
@@ -450,11 +513,10 @@ export class MeteorEngine {
     this._fullscreen(enc, working.createView(), this.pipelines.linearize,
       this._linearizeBindGroup(args.inputTextureView));
 
-    // composite each surface, ping-pong working <-> colorB (linear)
+    // composite each surface, ping-pong working <-> colorB (linear, encode=0)
     let src = working;
     let dst = colorB;
     for (const rt of this.surfaceRuntime.values()) {
-      this.queue.writeBuffer(this.uniformBuffers.composite, 0, packCompositeConfig({ encode: 0 }));
       this._fullscreen(enc, dst.createView(), this.pipelines.compositeLinear,
         this._compositeBindGroup(rt, src.createView()));
       [src, dst] = [dst, src];
@@ -471,8 +533,7 @@ export class MeteorEngine {
         this._dropletBindGroup(rt), impacts.length * 12);
     }
 
-    // final encode: disabled-surface composite, srgb -> output
-    this.queue.writeBuffer(this.uniformBuffers.composite, 0, packCompositeConfig({ encode: 1 }));
+    // final encode: disabled-surface composite, srgb -> output (encode=1)
     this._fullscreen(enc, args.outputTextureView, this.pipelines.compositeOutput,
       this._encodeBindGroup(src.createView()));
 
@@ -710,7 +771,7 @@ export class MeteorEngine {
         { binding: 7, resource: rt.mask.createView() },
         { binding: 8, resource: (this.assets.microNormal ?? rt.relief).createView() },
         { binding: 9, resource: this.samplers.repeat },
-        { binding: 10, resource: { buffer: this.uniformBuffers.composite } },
+        { binding: 10, resource: { buffer: this.uniformBuffers.compositeLinear } },
       ],
     });
   }
@@ -744,7 +805,7 @@ export class MeteorEngine {
         { binding: 7, resource: dummyMask.createView() },
         { binding: 8, resource: dummy.createView() },
         { binding: 9, resource: this.samplers.linear },
-        { binding: 10, resource: { buffer: this.uniformBuffers.composite } },
+        { binding: 10, resource: { buffer: this.uniformBuffers.compositeEncode } },
       ],
     });
   }

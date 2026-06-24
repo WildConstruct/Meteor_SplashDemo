@@ -69,9 +69,11 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
   water = clamp(water, 0.0, 4.0);
 
   // --- ripple: damped wave on the height/velocity channels ---
+  // Lighter damping + faster wave so impacts send visible concentric rings
+  // outward (the signature raindrop-on-water look) instead of dying on the spot.
   let lap = (l.b + r.b + d.b + u.b) - 4.0 * advected.b;
-  let c2 = 0.25;       // wave speed^2 (texel units)
-  let damping = 2.5;
+  let c2 = 0.42;       // wave speed^2 (texel units)
+  let damping = 1.1;
   var vel = advected.a + (c2 * lap - damping * advected.a) * dt;
   vel = vel + deposit.b; // impulse
   var hgt = advected.b + vel * dt;

@@ -26,6 +26,7 @@ export class EditorController {
     this.inspector = document.createElement('div');
     this.inspector.className = 'inspector';
     this.viewportEl.appendChild(this.inspector);
+    this._inspectorKey = null; // identity of the inspector's current selection
 
     this._bindPointer();
     state.addEventListener('change', () => this.render());
@@ -65,7 +66,24 @@ export class EditorController {
     renderHeroDots(g, this.vp, this.state.project.heroEvents, frame);
 
     this.svg.appendChild(g);
-    this._renderInspector();
+
+    // Rebuild the inspector DOM ONLY when the selection identity changes — never
+    // on a value tweak or per animation frame. Rebuilding it mid-drag (innerHTML
+    // = '') destroys the very <input type=range> being dragged, so the browser
+    // loses pointer capture and the control feels frozen. The live value readout
+    // is updated locally inside each slider's input handler, so the DOM the user
+    // is interacting with stays put.
+    const key = sel.type ? `${sel.type}:${sel.id}` : '';
+    if (key !== this._inspectorKey) {
+      this._inspectorKey = key;
+      this._renderInspector();
+    }
+  }
+
+  /** Force the inspector to rebuild on next render (e.g. after a preset apply
+   *  mutates the selected field's values out from under the open controls). */
+  invalidateInspector() {
+    this._inspectorKey = null;
   }
 
   // ---- interaction ----

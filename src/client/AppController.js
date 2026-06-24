@@ -20,6 +20,8 @@ import { ScenePicker } from './ui/ScenePicker.js';
 import { getScene, DEFAULT_SCENE_ID } from './projects/scenes.js';
 
 const MICRO_URL = `${import.meta.env.BASE_URL}assets/normals/wet-micro-normal.png`;
+// Max rate at which structural project edits are recompiled while dragging.
+const COMPILE_THROTTLE_MS = 100;
 
 export class AppController {
   constructor(dom) {
@@ -27,6 +29,7 @@ export class AppController {
     this.state = new ClientState();
     this.notify = new Notifications(dom.notifications);
     this.projectDirty = false;
+    this._lastCompile = 0;
     this.inputTexture = null;
     this._frameTimes = [];
   }
@@ -194,9 +197,16 @@ export class AppController {
 
       const frameIndex = this.timeline.update(now);
 
-      if (this.projectDirty) {
+      // Structural edits (dragging a rain-field slider, moving a surface) flag the
+      // project dirty. Recompiling is heavy — it regenerates every field's events
+      // and re-rasterizes each surface's mask + relief — so coalesce to ~10 Hz
+      // instead of running it on every one of the ~60 input events per second. The
+      // dirty flag persists until a recompile lands, so a final compile always
+      // follows shortly after the drag stops.
+      if (this.projectDirty && (now - this._lastCompile) >= COMPILE_THROTTLE_MS) {
         this.engine.setProject(this.state.project);
         this.projectDirty = false;
+        this._lastCompile = now;
       }
       this.engine.setParameters(this.state.params);
 

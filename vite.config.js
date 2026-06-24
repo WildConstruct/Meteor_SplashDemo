@@ -1,4 +1,7 @@
 import { defineConfig } from 'vite';
+import { fileURLToPath } from 'node:url';
+
+const r = (p) => fileURLToPath(new URL(p, import.meta.url));
 
 // The browser client is the only application shell. WGSL files are imported as
 // raw source strings (see src/client/ShaderSourceManifest.js) and handed to the
@@ -16,6 +19,14 @@ export default defineConfig({
     target: 'esnext',
     outDir: 'dist',
     sourcemap: true,
+    rollupOptions: {
+      // Two pages: index.html = wet-shader tuning harness (site root, mobile),
+      // app.html = the full Meteor editor. Keep both in the deploy.
+      input: {
+        index: r('index.html'),
+        app: r('app.html'),
+      },
+    },
   },
   assetsInclude: ['**/*.wgsl', '**/*.wcx'],
 });
