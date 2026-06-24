@@ -42,8 +42,9 @@ fn vs(@builtin(vertex_index) vid: u32, @builtin(instance_index) iid: u32) -> Dro
   let age = ageFrames / 30.0; // seconds at sim hz reference
   let alive = ageFrames >= 0.0 && ageFrames <= lifeFrames;
 
-  // emit fraction of slots based on spread (acts as a count control)
-  let emit = a2 < clamp(0.3 + imp.spreadOv * 0.5, 0.0, 1.0);
+  // emit only a few slots (sparse bounce droplets, not a fountain) — the old
+  // count read as a particle spray. Bias toward larger/faster drops.
+  let emit = a2 < clamp(0.10 + imp.spreadOv * 0.18, 0.0, 0.4);
 
   if (!alive || !emit || surface.enabled < 0.5) {
     out.pos = vec4<f32>(2.0, 2.0, 2.0, 1.0);
@@ -61,14 +62,14 @@ fn vs(@builtin(vertex_index) vid: u32, @builtin(instance_index) iid: u32) -> Dro
   let imgUV0 = apply_h(surface.homographyFwd, imp.surfaceUV);
   let center = imgUV0 + lateral * age + surface.normalDir * h;
 
-  let radius = 0.004 * imp.dropSize * (0.6 + 0.4 * a1);
+  let radius = 0.0022 * imp.dropSize * (0.6 + 0.4 * a1);
   let q = QUAD[vid];
   let aspect = frame.resolution.x / max(frame.resolution.y, 1.0);
   let p = center + vec2<f32>(q.x, q.y * aspect) * radius;
 
   out.pos = vec4<f32>(p.x * 2.0 - 1.0, 1.0 - p.y * 2.0, 0.0, 1.0);
   out.local = q;
-  out.alpha = (1.0 - ageFrames / lifeFrames) * imp.visualGain * params.visualGain;
+  out.alpha = (1.0 - ageFrames / lifeFrames) * imp.visualGain * params.visualGain * 0.5;
   return out;
 }
 

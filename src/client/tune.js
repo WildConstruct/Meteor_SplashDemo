@@ -36,13 +36,13 @@ const CONTROLS = [
   { id: 'specularWidth', label: 'Reflection spread', min: 0.01, max: 2, step: 0.01, def: 0.4 },
   { id: 'specularDirection', label: 'Light angle', min: -3.14, max: 3.14, step: 0.01, def: 0.7 },
   { id: 'poolHighlight', label: 'Pooling', min: 0, max: 2, step: 0.01, def: 0.7 },
-  { id: 'rippleNormalStrength', label: 'Ripple rings', min: 0, max: 2, step: 0.01, def: 0.9 },
-  { id: 'microNormalStrength', label: 'Micro breakup', min: 0, max: 2, step: 0.01, def: 0.4 },
-  { id: 'distortion', label: 'Refraction', min: 0, max: 2, step: 0.01, def: 0.4 },
+  { id: 'rippleNormalStrength', label: 'Ripple rings', min: 0, max: 2, step: 0.01, def: 1.0 },
+  { id: 'microNormalStrength', label: 'Micro breakup', min: 0, max: 2, step: 0.01, def: 0.35 },
+  { id: 'distortion', label: 'Refraction', min: 0, max: 2, step: 0.01, def: 0.5 },
   { id: 'visualGain', label: 'Overall gain', min: 0, max: 4, step: 0.01, def: 1 },
-  { id: 'splashWidth', label: 'Splash size', min: 0, max: 6, step: 0.01, def: 1 },
-  { id: 'splashHeight', label: 'Splash height', min: 0, max: 6, step: 0.01, def: 0.8 },
-  { id: 'density', label: 'Rain density', min: 0, max: 1, step: 0.01, def: 0.75 },
+  { id: 'splashWidth', label: 'Splash size', min: 0, max: 6, step: 0.01, def: 0.7 },
+  { id: 'splashHeight', label: 'Splash height', min: 0, max: 6, step: 0.01, def: 0.4 },
+  { id: 'density', label: 'Rain density', min: 0, max: 1, step: 0.01, def: 0.4 },
 ];
 
 const overrides = {};
@@ -108,7 +108,7 @@ function groundSurface(id, name, { farL, farR, nearL, nearR }, seed) {
       id: `${id}-rain`, name: `${name} rain`, enabled: true, surfaceId: id,
       placementSeed: seed, responseSeed: seed + 7,
       centerUV: { u: 0.5, v: 0.5 }, scaleUV: { x: 0.48, y: 0.48 }, rotation: 0,
-      density: overrides.density, falloff: 0.25, ratePerSecond: 70,
+      density: overrides.density, falloff: 0.25, ratePerSecond: 24,
       startFrame: 0, endFrame: DURATION,
       dropSizeRange: [0.4, 1.2], velocityRange: [0.6, 1.4], incomingDirection: -1.5708,
       paletteId: 'rain', poolSize: 256,

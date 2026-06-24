@@ -37,7 +37,12 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let spatial = exp(-(d * d) / (radius * radius));
     wet = wet + imp.wetnessDeposit * spatial * tw;
     water = water + imp.waterDeposit * spatial * tw;
-    ripple = ripple + imp.rippleImpulse * spatial * exp(-age * 1.5);
+    // Ripple impulse gets a wider footprint than the wetness splat so each drop
+    // launches one smooth, low-frequency ring instead of a single-texel spike
+    // that reads as high-frequency jitter once many overlap.
+    let rippleRadius = 0.016 + 0.012 * imp.dropSize;
+    let rippleSpatial = exp(-(d * d) / (rippleRadius * rippleRadius));
+    ripple = ripple + imp.rippleImpulse * rippleSpatial * exp(-age * 1.5);
   }
 
   textureStore(depositTex, vec2<i32>(i32(gid.x), i32(gid.y)),

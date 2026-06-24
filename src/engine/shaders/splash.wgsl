@@ -38,15 +38,16 @@ fn vs(@builtin(vertex_index) vid: u32, @builtin(instance_index) iid: u32) -> Spl
   }
 
   let imgUV = apply_h(surface.homographyFwd, imp.surfaceUV);
-  // crown lift along the art-directed normal, scaled by splashHeight
-  let crownH = sin(clamp(t, 0.0, 1.0) * 3.14159) * imp.heightOv * params.splashHeight;
+  // Small crown lift — the heightfield ripple now provides the spreading ring, so
+  // this pass is just the brief sparkle of the drop striking, not a big crown.
+  let crownH = sin(clamp(t, 0.0, 1.0) * 3.14159) * imp.heightOv * params.splashHeight * 0.3;
   let lift = surface.normalDir * crownH;
   let center = imgUV + lift;
 
-  // Contact ring stays small at birth and expands as it ages (ripple-like).
-  // Smaller base than before: the old scale read as fat white bubbles.
-  let radius = (0.004 + 0.012 * imp.dropSize) * imp.widthOv * params.splashWidth
-             * (0.35 + 1.15 * t);
+  // A small, roughly fixed-size dot (NOT an expanding ring — the water handles
+  // that). The old expanding white ring duplicated the ripple and read as a blob.
+  let radius = (0.004 + 0.006 * imp.dropSize) * imp.widthOv * max(0.3, params.splashWidth)
+             * (0.8 + 0.3 * t);
   let q = QUAD[vid];
   let aspect = frame.resolution.x / max(frame.resolution.y, 1.0);
   let p = center + vec2<f32>(q.x, q.y * aspect) * radius;
@@ -64,14 +65,12 @@ fn fs(in: SplashVSOut) -> @location(0) vec4<f32> {
   if (r > 1.0) {
     discard;
   }
-  // Thin, crisp contact ring riding the expanding quad rim (reads as a ripple),
-  // plus a tight bright pop only at the moment of impact. The old fat ring + big
-  // filled core looked like a white bubble; keep the rim narrow and the core
-  // brief so it parses as water hitting a surface.
-  let ring = smoothstep(0.62, 0.86, r) * smoothstep(1.0, 0.86, r);
-  let pop = smoothstep(0.35, 0.0, r) * pow(1.0 - in.life, 3.0);
-  let fade = pow(1.0 - in.life, 1.6);
-  let intensity = (ring * 0.75 + pop * 0.6) * fade * in.gain;
-  let rgb = vec3<f32>(0.82, 0.9, 1.0) * intensity;
+  // Just a brief bright impact sparkle: a soft dot that pops the instant the
+  // drop lands and is gone within a few frames. The spreading ring comes from the
+  // water sim now, so there is no ring here — this only adds the "tick" of impact.
+  let core = smoothstep(1.0, 0.0, r);
+  let flash = pow(1.0 - in.life, 4.0);
+  let intensity = core * flash * in.gain * 0.55;
+  let rgb = vec3<f32>(0.90, 0.95, 1.0) * intensity;
   return vec4<f32>(rgb, intensity); // premultiplied; engine uses additive blend
 }
