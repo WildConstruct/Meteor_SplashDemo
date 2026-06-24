@@ -4,10 +4,9 @@
 // WebGL is used for overlays; the VFX result stays entirely WebGPU-generated.
 
 import { ViewportController, svgEl } from './ViewportController.js';
-import { renderSurface } from './SurfaceTool.js';
 import { renderQuad } from './PerspectiveTool.js';
 import { renderNormal, normalFromDrag } from './NormalTool.js';
-import { renderField, renderDots, renderHeroDots } from './RainFieldTool.js';
+import { renderField, renderHeroDots } from './RainFieldTool.js';
 import { renderRelief } from './ReliefTool.js';
 import { pickImpact } from './ImpactPicking.js';
 import { promotePicked, moveHero, retimeHero, setHeroOverride } from './HeroImpactTool.js';
@@ -55,12 +54,15 @@ export class EditorController {
     for (const surface of this.state.surfaces()) {
       const surfSelected = sel.type === 'surface' && sel.id === surface.id;
       renderRelief(g, this.vp, surface);
-      renderSurface(g, this.vp, surface, surfSelected);
+      // NOTE: the filled surface-mask box + grid + label (renderSurface) and the
+      // per-impact placement dots (renderDots) are intentionally NOT drawn — they
+      // cluttered the view and rebuilding hundreds of dot nodes every frame made
+      // dragging sluggish. The calibration quad below is the surface's editable
+      // outline; the GPU sim still uses every impact.
       renderQuad(g, this.vp, surface, surfSelected);
       renderNormal(g, this.vp, surface, surfSelected);
       for (const field of surface.rainFields ?? []) {
         renderField(g, this.vp, surface, field, sel.type === 'field' && sel.id === field.id, ctx);
-        renderDots(g, this.vp, surface, field, ctx);
       }
     }
     renderHeroDots(g, this.vp, this.state.project.heroEvents, frame);
