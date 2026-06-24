@@ -103,6 +103,13 @@ body {
 .inspector-title { font-weight: 700; margin-bottom: 6px; color: var(--accent); }
 
 /* overlay svg styling */
+/* Only the drag handles + dots should capture pointer input. Decorative shapes
+   (surface mask fill, calibration quad, field footprint, labels) are filled and
+   would otherwise sit ON TOP of the handles and intercept every click, so no
+   drag could ever start. Make everything in the overlay click-through by default
+   and re-enable interaction on the handle/dot elements. */
+#overlay * { pointer-events: none; }
+#overlay [data-handle] { pointer-events: all; }
 .surface-mask { fill: rgba(79,176,255,.06); stroke: rgba(79,176,255,.5); stroke-width: 1.5; }
 .surface-mask.selected { stroke: var(--accent); stroke-width: 2; }
 .surface-grid { stroke: rgba(79,176,255,.18); stroke-width: 1; }
