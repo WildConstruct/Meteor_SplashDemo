@@ -6,7 +6,7 @@
 import { MeteorEngine } from '../engine/index.js';
 import { BrowserHost } from './BrowserHost.js';
 import { loadShaderSources } from './ShaderSourceManifest.js';
-import { loadMicroNormal } from './BrowserAssetLoader.js';
+import { loadMicroNormal, loadImageBitmap } from './BrowserAssetLoader.js';
 
 const MICRO_URL = `${import.meta.env.BASE_URL}assets/normals/wet-micro-normal.png`;
 const FRAME_RATE = 30;
@@ -90,7 +90,7 @@ async function makePlate() {
 // schema's calibrationQuad. The two halves share the center edge so they tile
 // into one receding ground plane split dark|light down the middle.
 function groundSurface(id, name, { farL, farR, nearL, nearR }, seed) {
-  const farTop = 0.45, nearBottom = 0.99;
+  const farTop = 0.60, nearBottom = 1.0; // pavement foreground of the plate
   const quad = [
     { x: farL, y: farTop },        // TL (far)
     { x: farR, y: farTop },        // TR (far)
@@ -123,9 +123,8 @@ function buildProject() {
     sourcePlate: { assetId: 'synthetic/tune', width: 1280, height: 720 },
     palettes: [{ id: 'rain', name: 'Rain', entries: [{ responseId: 'puddle-crown', weight: 1 }] }],
     surfaces: [
-      // share the center edge (farR/nearR of dark == farL/nearL of light = 0.5)
-      groundSurface('dark', 'Dark', { farL: 0.18, farR: 0.5, nearL: 0.02, nearR: 0.5 }, 11),
-      groundSurface('light', 'Light', { farL: 0.5, farR: 0.82, nearL: 0.5, nearR: 0.98 }, 41),
+      // one wet-pavement surface across the plate's foreground
+      groundSurface('pavement', 'Pavement', { farL: 0.0, farR: 1.0, nearL: 0.0, nearR: 1.0 }, 11),
     ],
     heroEvents: [], selectedIds: [], viewportState: { zoom: 1, panX: 0, panY: 0 },
   };
@@ -164,7 +163,15 @@ async function start() {
       shaderSources: loadShaderSources(),
     });
     engine.registerAssets({ microNormal: await loadMicroNormal(host.device, MICRO_URL) });
-    plate = uploadPlate(host.device, await makePlate());
+    // Default to the real demo plate (Tesla on a pavement at sunset). The puddle
+    // reflects the SAME image by default, so it mirrors that sunset sky until the
+    // user loads a dedicated sky via "Load sky/env". Falls back to a synthetic
+    // dark/light plate if the asset can't be fetched.
+    let plateBmp;
+    try { plateBmp = await loadImageBitmap(`${import.meta.env.BASE_URL}assets/demo/tesla-model3.png`); }
+    catch { plateBmp = await makePlate(); }
+    plate = uploadPlate(host.device, plateBmp);
+    engine.registerAssets({ environment: uploadPlate(host.device, plateBmp) });
     project = buildProject();
     engine.setProject(project);
     engine.setParameters(overrides);

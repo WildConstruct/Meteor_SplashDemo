@@ -70,27 +70,32 @@ const plate = device.createTexture({ size: { width: W, height: H }, format: 'rgb
   const bpr = Math.ceil((W * 4) / 256) * 256;
   const buf = new Uint8Array(bpr * H);
   const streak = (x, cx, wd, amp) => amp * Math.exp(-((x - cx) * (x - cx)) / (2 * wd * wd));
-  const horizon = H * 0.42;
+  // Mimic the Tesla plate layout: warm sunset sky on top, pavement below.
+  const horizon = H * 0.58;
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    let base;
-    if (y < horizon) base = 12 + 16 * (y / horizon);          // dark sky
-    else base = (x < W / 2) ? 27 : 168;                       // dark asphalt | light concrete
-    let v = base;
-    v += streak(x, W * 0.28, W * 0.05, 90);                   // cool reflected light (dark side)
-    v += streak(x, W * 0.74, W * 0.045, 55);                  // warm reflected light (light side)
-    v += (((x * 13 + y * 7) % 17) - 8) * 0.6;                 // faint grain
-    const r = Math.max(0, Math.min(255, v + streak(x, W * 0.74, W * 0.045, 25)));
-    const g = Math.max(0, Math.min(255, v));
-    const b = Math.max(0, Math.min(255, v + streak(x, W * 0.28, W * 0.05, 20)));
-    const o = y * bpr + x * 4; buf[o] = r; buf[o + 1] = g; buf[o + 2] = b; buf[o + 3] = 255;
+    let r; let g; let b;
+    if (y < horizon) {
+      const t = y / horizon;                 // 0 top -> 1 horizon
+      r = 250 - 30 * t; g = 200 - 20 * t; b = 150 + 40 * t;  // warm sunset -> hazy
+    } else {
+      const v = (x < W * 0.52) ? 60 : 120;   // asphalt | concrete pad
+      const grain = (((x * 13 + y * 7) % 17) - 8) * 0.6;
+      r = v + grain; g = v + grain; b = v + 6 + grain;
+    }
+    const o = y * bpr + x * 4;
+    buf[o] = Math.max(0, Math.min(255, r)); buf[o + 1] = Math.max(0, Math.min(255, g));
+    buf[o + 2] = Math.max(0, Math.min(255, b)); buf[o + 3] = 255;
   }
   device.queue.writeTexture({ texture: plate }, buf, { bytesPerRow: bpr, rowsPerImage: H }, { width: W, height: H });
   const sp = (u, v) => { const x = Math.floor(u * W), y = Math.floor(v * H), o = y * bpr + x * 4; return `${buf[o]},${buf[o + 1]},${buf[o + 2]}`; };
   console.log(`plate src  gap(0.50,0.55)=${sp(0.50, 0.55)}  mask(0.25,0.55)=${sp(0.25, 0.55)}  streak(0.30,0.55)=${sp(0.30, 0.55)}`);
 }
 
-const project = JSON.parse(readFileSync(resolve(here, '..', 'src', 'client', 'projects', 'hard-surface-topdown.meteor.json'), 'utf8'));
+const projArg = process.argv[2] ?? resolve(here, '..', 'src', 'client', 'projects', 'hard-surface-topdown.meteor.json');
+const project = JSON.parse(readFileSync(projArg, 'utf8'));
 if (process.env.EMPTY) { project.surfaces = []; console.log('EMPTY: no surfaces (linearize + encode only)'); }
+console.log('project:', project.projectId);
+engine.registerAssets({ environment: plate }); // reflect the plate's own sky, like the tuning page default
 engine.setProject(project);
 
 const output = device.createTexture({ size: { width: W, height: H }, format: FORMAT, usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC | GPUTextureUsage.TEXTURE_BINDING });

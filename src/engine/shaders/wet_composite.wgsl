@@ -116,10 +116,16 @@ fn fs(in: VSOut) -> @location(0) vec4<f32> {
   // close — which is exactly why reference puddle photos look so reflective. ----
   let distMag = 0.015 + 0.05 * params.distortion;
 
-  // REFRACTION: darkened, ripple-distorted view of the ground beneath the film.
+  // REFRACTION: darkened, ripple-distorted view of the ground beneath the film,
+  // plus CAUSTICS — ripple crests act as lenses that focus light onto the bottom
+  // (the bright wavy light webgpu-water shows). Concave surface (negative
+  // Laplacian of the ripple height) => focused/brighter.
   let refrUV = imgUV + n.xy * distMag;
   let bottom = textureSampleLevel(colorIn, samp, refrUV, 0.0).rgb;
-  let refrCol = bottom * (1.0 - params.wetDarkening * 0.7 * wetAmt);
+  let lap = (rl + rr + rd + ru) - 4.0 * rippleH;
+  let caustic = clamp(-lap * 5.0, 0.0, 1.5);
+  let refrCol = bottom * (1.0 - params.wetDarkening * 0.7 * wetAmt)
+              + vec3<f32>(1.0, 0.97, 0.88) * caustic * wetAmt * 0.45;
 
   // REFLECTION: sample the plate offset toward the horizon (what's "above" the
   // puddle in the scene), ripple-distorted, tinted cool and lifted by bright
