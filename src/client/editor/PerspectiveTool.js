@@ -3,10 +3,12 @@
 // updates the homography immediately (the overlay recomputes on redraw).
 
 import { svgEl } from './ViewportController.js';
+import { isWarped } from '../../engine/geometry/SurfaceWarp.js';
 
 const CORNER_LABELS = ['A', 'B', 'C', 'D'];
 
 export function renderQuad(group, vp, surface, selected) {
+  if (isWarped(surface)) return; // a warped surface is drawn by WarpTool instead
   const quad = (surface.calibrationQuad || []).map((p) =>
     Array.isArray(p) ? { x: p[0], y: p[1] } : p
   );

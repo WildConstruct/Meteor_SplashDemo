@@ -6,6 +6,8 @@
 import { ViewportController, svgEl } from './ViewportController.js';
 import { renderSurface, renderCutouts } from './SurfaceTool.js';
 import { renderQuad } from './PerspectiveTool.js';
+import { renderWarp, warpCornerToQuadIndex } from './WarpTool.js';
+import { warpFromQuad, addSlice, isWarped } from '../../engine/geometry/SurfaceWarp.js';
 import { renderNormal, normalFromDisc } from './NormalTool.js';
 import { renderField, renderHeroDots } from './RainFieldTool.js';
 import { renderRelief } from './ReliefTool.js';
@@ -61,6 +63,7 @@ export class EditorController {
       // sluggish. The calibration quad below is the visible editable outline.
       renderSurface(g, this.vp, surface, surfSelected);
       renderQuad(g, this.vp, surface, surfSelected);
+      renderWarp(g, this.vp, surface, surfSelected);
       renderCutouts(g, this.vp, surface, surfSelected);
       renderNormal(g, this.vp, surface, surfSelected);
       for (const field of surface.rainFields ?? []) {
@@ -126,6 +129,7 @@ export class EditorController {
         origQuad: s.calibrationQuad.map((c) => ({ x: c.x, y: c.y })),
         origMask: (s.maskPath ?? []).map((p) => ({ u: p.u ?? p.x, v: p.v ?? p.y })),
         origCuts: (s.cutouts ?? []).map((c) => (c.points ?? c).map((p) => ({ u: p.u ?? p.x, v: p.v ?? p.y }))),
+        origWarp: isWarped(s) ? s.warp.grid.map((row) => row.map((p) => ({ u: p.u, v: p.v }))) : null,
       };
       return;
     }
@@ -151,6 +155,14 @@ export class EditorController {
     if (handle === 'normal-disc') {
       this.state.select('surface', t.dataset.surface);
       this.drag = { type: 'normal-disc', surfaceId: t.dataset.surface };
+      return;
+    }
+    if (handle === 'warp-pt') {
+      this.state.select('surface', t.dataset.surface);
+      this.drag = {
+        type: 'warp-pt', surfaceId: t.dataset.surface,
+        row: Number(t.dataset.row), col: Number(t.dataset.col),
+      };
       return;
     }
     if (handle === 'cutout') {
@@ -207,12 +219,25 @@ export class EditorController {
         if (this.drag.origCuts.length) {
           s.cutouts = this.drag.origCuts.map((pts) => ({ points: pts.map((p) => ({ u: p.u + du, v: p.v + dv })) }));
         }
+        if (this.drag.origWarp) {
+          s.warp = { ...s.warp, grid: this.drag.origWarp.map((row) => row.map((p) => ({ u: p.u + du, v: p.v + dv }))) };
+        }
         this.state.emit('surface');
         break;
       }
       case 'normal-disc': {
         const s = this.state.surface(this.drag.surfaceId);
         s.worldNormal = normalFromDisc(this.vp, s, screen);
+        this.state.emit('surface');
+        break;
+      }
+      case 'warp-pt': {
+        const s = this.state.surface(this.drag.surfaceId);
+        const { row, col } = this.drag;
+        s.warp.grid[row][col] = { u: uv.u, v: uv.v };
+        // keep outer corners synced to the calibration quad (mask + impacts use it)
+        const qi = warpCornerToQuadIndex(row, col, s.warp.grid.length);
+        if (qi >= 0) this._setQuadCorner(s, qi, uv.u, uv.v);
         this.state.emit('surface');
         break;
       }
@@ -314,6 +339,32 @@ export class EditorController {
         s.maskFeather = v;
         this.state.emit('surface');
       }));
+      // ---- bend (slice / warp) ----
+      if (isWarped(s)) {
+        ins.appendChild(this._slider('Bend blend', s.warp.blend ?? 0.5, 0, 1, 0.01, (v) => {
+          s.warp = { ...s.warp, blend: v };
+          this.state.emit('surface');
+        }));
+      }
+      const bendRow = document.createElement('div');
+      bendRow.className = 'inspector-actions';
+      const slice = document.createElement('button');
+      slice.textContent = isWarped(s) ? '✚ Add slice' : '⌒ Bend (add slice)';
+      slice.addEventListener('click', () => this._addSlice(s));
+      bendRow.appendChild(slice);
+      if (isWarped(s)) {
+        const flat = document.createElement('button');
+        flat.textContent = 'Flatten';
+        flat.addEventListener('click', () => {
+          delete s.warp;
+          this.state.emit('surface');
+          this.invalidateInspector();
+          this.render();
+        });
+        bendRow.appendChild(flat);
+      }
+      ins.appendChild(bendRow);
+
       const row = document.createElement('div');
       row.className = 'inspector-actions';
       const add = document.createElement('button');
@@ -333,6 +384,20 @@ export class EditorController {
       }
       ins.appendChild(row);
     }
+  }
+
+  /** Add a slice: convert a flat surface to a warp grid, or insert another row. */
+  _addSlice(surface) {
+    if (isWarped(surface)) {
+      surface.warp = addSlice(surface.warp, 0.5);
+    } else {
+      const base = warpFromQuad(surface.calibrationQuad);
+      if (!base) { this.notify?.warn('Calibrate the surface first.'); return; }
+      surface.warp = addSlice(base, 0.5);
+    }
+    this.state.emit('surface');
+    this.invalidateInspector();
+    this.render();
   }
 
   /** Drop a draggable quad cutout in the middle of the surface's mask bounds. */

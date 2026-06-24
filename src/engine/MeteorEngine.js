@@ -15,6 +15,7 @@ import {
 import { ParameterState } from './ParameterState.js';
 import { buildSurfaceTransforms, normalProjection, surfaceWorldNormal } from './geometry/SurfaceTransforms.js';
 import { rasterizeMask } from './geometry/SurfaceMask.js';
+import { isWarped, tessellateWarp } from './geometry/SurfaceWarp.js';
 import { rasterizeRelief } from './geometry/ReliefShapes.js';
 import { buildFieldEvents, activeEvents } from './events/RainFieldScheduler.js';
 import { resolveResponses } from './events/ImpactPalette.js';
@@ -213,6 +214,26 @@ export class MeteorEngine {
     this.pipelines.compositeLinear = compositeFor(fmtLinear);
     this.pipelines.compositeOutput = compositeFor(this.outputFormat);
 
+    // Mesh-warp composite: a tessellated bent plane feeds surface UV per vertex
+    // (curved surfaces). Same group-0 layout as the fullscreen composite; the
+    // only difference is a vertex buffer (image-UV position + surface UV) and the
+    // vs_warp/fs_warp entry points. Linear intermediate only.
+    this.pipelines.compositeWarp = dev.createRenderPipeline({
+      layout: compositeLayout,
+      vertex: {
+        module: this.modules.wet_composite, entryPoint: 'vs_warp',
+        buffers: [{
+          arrayStride: 16,
+          attributes: [
+            { shaderLocation: 0, offset: 0, format: 'float32x2' },  // image-UV position
+            { shaderLocation: 1, offset: 8, format: 'float32x2' },  // surface UV
+          ],
+        }],
+      },
+      fragment: { module: this.modules.wet_composite, entryPoint: 'fs_warp', targets: [{ format: fmtLinear }] },
+      primitive: { topology: 'triangle-list' },
+    });
+
     const additive = {
       color: { srcFactor: 'one', dstFactor: 'one', operation: 'add' },
       alpha: { srcFactor: 'one', dstFactor: 'one', operation: 'add' },
@@ -303,6 +324,11 @@ export class MeteorEngine {
     const p = this.project;
     const palettes = new Map((p.palettes ?? []).map((pl) => [pl.id, pl]));
     const heroSuppressed = suppressedSourceIds(p.heroEvents ?? []);
+    // free any previous warp-mesh GPU buffers before dropping the runtimes
+    for (const rt of this.surfaceRuntime.values()) {
+      rt.warpMesh?.vbuf.destroy();
+      rt.warpMesh?.ibuf.destroy();
+    }
     this.surfaceRuntime.clear();
 
     for (const surface of p.surfaces ?? []) {
@@ -347,8 +373,31 @@ export class MeteorEngine {
         simInitialized: false,
         staticUploaded: false,
         bindGroups: {},
+        warpMesh: this._buildWarpMesh(surface),
       });
     }
+  }
+
+  /** Build a tessellated bent-plane mesh (vertex + index buffers) for a warped
+   *  surface, or null for a flat one (which uses the fullscreen homography pass). */
+  _buildWarpMesh(surface) {
+    if (!isWarped(surface)) return null;
+    const { positions, uvs, indices } = tessellateWarp(surface.warp.grid, {
+      segU: 32, segV: 32, blend: surface.warp.blend ?? 0,
+    });
+    const n = positions.length / 2;
+    const interleaved = new Float32Array(n * 4); // [imgX, imgY, surfU, surfV]
+    for (let i = 0; i < n; i++) {
+      interleaved[i * 4] = positions[i * 2];
+      interleaved[i * 4 + 1] = positions[i * 2 + 1];
+      interleaved[i * 4 + 2] = uvs[i * 2];
+      interleaved[i * 4 + 3] = uvs[i * 2 + 1];
+    }
+    const vbuf = this.device.createBuffer({ size: interleaved.byteLength, usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST });
+    this.queue.writeBuffer(vbuf, 0, interleaved);
+    const ibuf = this.device.createBuffer({ size: indices.byteLength, usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST });
+    this.queue.writeBuffer(ibuf, 0, indices);
+    return { vbuf, ibuf, indexCount: indices.length };
   }
 
   /** Effective impacts (response + hero overrides baked) active at a frame. */
@@ -523,8 +572,17 @@ export class MeteorEngine {
     let src = working;
     let dst = colorB;
     for (const rt of this.surfaceRuntime.values()) {
-      this._fullscreen(enc, dst.createView(), this.pipelines.compositeLinear,
-        this._compositeBindGroup(rt, src.createView()));
+      if (rt.warpMesh) {
+        // Bent plane: copy the background through (the mesh only covers the warped
+        // region), then draw the tessellated mesh on top, compositing wet using
+        // the per-vertex surface UV. Reads src, writes dst.
+        this._fullscreen(enc, dst.createView(), this.pipelines.compositeLinear,
+          this._passthroughBindGroup(src.createView()));
+        this._drawWarp(enc, dst.createView(), rt, src.createView());
+      } else {
+        this._fullscreen(enc, dst.createView(), this.pipelines.compositeLinear,
+          this._compositeBindGroup(rt, src.createView()));
+      }
       [src, dst] = [dst, src];
     }
 
@@ -567,6 +625,57 @@ export class MeteorEngine {
     pass.setBindGroup(0, bindGroup);
     pass.draw(6, instances);
     pass.end();
+  }
+
+  // Draw a warped surface's tessellated mesh on top of the (already copied)
+  // background. Shares the composite group-0 bind group with the fullscreen path.
+  _drawWarp(enc, view, rt, colorInView) {
+    const pass = enc.beginRenderPass({
+      colorAttachments: [{ view, loadOp: 'load', storeOp: 'store' }],
+    });
+    pass.setPipeline(this.pipelines.compositeWarp);
+    pass.setBindGroup(0, this._compositeBindGroup(rt, colorInView));
+    pass.setVertexBuffer(0, rt.warpMesh.vbuf);
+    pass.setIndexBuffer(rt.warpMesh.ibuf, 'uint32');
+    pass.drawIndexed(rt.warpMesh.indexCount);
+    pass.end();
+  }
+
+  // A pure copy of colorIn -> target (linear), via the composite shader with a
+  // disabled surface (returns base) at encode=0. Used to pass the background
+  // through before drawing a warp mesh over the covered region only.
+  _passthroughBindGroup(colorInView) {
+    this._disabledSurface ??= (() => {
+      const b = this.device.createBuffer({ size: 128, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+      const ident = [1, 0, 0, 0, 1, 0, 0, 0, 1];
+      this.queue.writeBuffer(b, 0, packSurface({ forward: ident, inverse: ident, normalDir: { dx: 0, dy: 0 }, enabled: false, simResolution: 256, worldNormal: { x: 0, y: 0, z: 1 } }));
+      return b;
+    })();
+    const dummy = this._dummyTex ??= this.pool.acquire('dummy', {
+      size: { width: 1, height: 1 }, format: 'rgba16float',
+      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+    });
+    const dummyMask = this._dummyMask ??= this.pool.acquire('dummyMask', {
+      size: { width: 1, height: 1 }, format: 'r8unorm',
+      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+    });
+    return this.device.createBindGroup({
+      layout: this.pipelines.compositeLinear.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: this.uniformBuffers.frame } },
+        { binding: 1, resource: { buffer: this.uniformBuffers.params } },
+        { binding: 2, resource: { buffer: this._disabledSurface } },
+        { binding: 3, resource: colorInView },
+        { binding: 4, resource: dummy.createView() },
+        { binding: 5, resource: dummy.createView() },
+        { binding: 6, resource: dummy.createView() },
+        { binding: 7, resource: dummyMask.createView() },
+        { binding: 8, resource: dummy.createView() },
+        { binding: 9, resource: this.samplers.linear },
+        { binding: 10, resource: { buffer: this.uniformBuffers.compositeLinear } },
+        { binding: 11, resource: this._environmentView() },
+      ],
+    });
   }
 
   // ---- texture lifecycle ----

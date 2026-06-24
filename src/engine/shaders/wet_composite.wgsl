@@ -3,6 +3,13 @@
 // surface's wet contribution. A final invocation with a disabled surface and
 // compositeConfig.encode=1 performs the linear->sRGB encode to the output target.
 //
+// Two ways in:
+//  - fs       fullscreen pass: screen->surface via the perspective homography
+//             (flat planes). Also handles debug views + the final sRGB encode.
+//  - fs_warp  mesh pass: a tessellated, BENT plane feeds surface UV per vertex
+//             (curved surfaces), so no homography/inverse is needed. Linear
+//             intermediate only; the shared wetCompositeLinear() does the look.
+//
 // Debug visualizations (build plan §4 step 14) are produced here when
 // params.debugMode > 0.
 
@@ -43,22 +50,15 @@ fn fresnelTilt(n: vec3<f32>) -> f32 {
   return pow(1.0 - clamp(n.z, 0.0, 1.0), 2.0);
 }
 
-@fragment
-fn fs(in: VSOut) -> @location(0) vec4<f32> {
-  let imgUV = in.uv;
-  var base = textureSampleLevel(colorIn, samp, imgUV, 0.0).rgb;
-
-  if (surface.enabled < 0.5) {
-    return vec4<f32>(encodeOut(base), 1.0);
-  }
-
-  let surfUV = apply_h(surface.homographyInv, imgUV);
-  let inBounds = surfUV.x >= 0.0 && surfUV.x <= 1.0 && surfUV.y >= 0.0 && surfUV.y <= 1.0;
-  if (!inBounds) {
-    return vec4<f32>(encodeOut(base), 1.0);
-  }
-
+// Shared wet look. Given a surface-UV sample point, the screen UV under it, and
+// the background colour there, return the LINEAR composited colour (not encoded).
+// Returns `base` unchanged where the mask is empty.
+fn wetCompositeLinear(surfUV: vec2<f32>, imgUV: vec2<f32>, base: vec3<f32>) -> vec3<f32> {
   let mask = textureSampleLevel(maskTex, samp, surfUV, 0.0).r;
+  if (mask < 0.01) {
+    return base;
+  }
+
   let state = textureSampleLevel(stateTex, samp, surfUV, 0.0);     // wet, water, rippleH, rippleV
   let relief = textureSampleLevel(reliefTex, samp, surfUV, 0.0);   // height, gx, gy, mag
   let flow = textureSampleLevel(flowTex, samp, surfUV, 0.0).xy;
@@ -66,26 +66,6 @@ fn fs(in: VSOut) -> @location(0) vec4<f32> {
   let wet = state.r;
   let water = state.g;
   let rippleH = state.b;
-
-  // ---- debug views ----
-  if (params.debugMode > 0.5) {
-    var dbg = base;
-    let m = params.debugMode;
-    if (m < 1.5) { dbg = vec3<f32>(surfUV, 0.0); }              // surface UV
-    else if (m < 2.5) { dbg = vec3<f32>(fract(surfUV * 8.0), 0.5); } // impact-ID grid
-    else if (m < 3.5) { dbg = vec3<f32>(wet * 0.5); }           // wetness
-    else if (m < 4.5) { dbg = vec3<f32>(relief.r * 0.5 + 0.5); }// relief
-    else if (m < 5.5) { dbg = vec3<f32>(flow * 0.5 + 0.5, 0.5); } // flow
-    else if (m < 6.5) { dbg = vec3<f32>(0.0, water * 0.5, water); } // pool
-    else if (m < 7.5) { dbg = vec3<f32>(rippleH * 0.5 + 0.5); } // ripple
-    else { dbg = vec3<f32>(mask); }                             // mask
-    dbg = mix(base, dbg, step(0.01, mask));
-    return vec4<f32>(encodeOut(dbg), 1.0);
-  }
-
-  if (mask < 0.01) {
-    return vec4<f32>(encodeOut(base), 1.0);
-  }
 
   // It is raining, so the masked ground reads wet — but how MUCH standing water
   // sits there at rest is the "Water Level" control. A low level leaves the
@@ -129,18 +109,10 @@ fn fs(in: VSOut) -> @location(0) vec4<f32> {
               + vec3<f32>(1.0, 0.97, 0.88) * caustic * wetAmt * 0.45;
 
   // REFLECTION: mirror a SPHERICAL sky (equirectangular env / HDRI) — NOT the
-  // plate. The plate is the ground; reflecting it in a top-down puddle is wrong
-  // and looked awful. Build a world reflection direction from the heightfield
-  // normal (n.z is the surface up-axis -> world Y). The perspective view grazes
-  // toward the horizon with distance, so the up-component drops with grazing
-  // (near -> zenith, far -> horizon); ripple tilt (n.xy) scatters the azimuth so
-  // the sky shimmers in the waves. Sample equirect: u = azimuth, v: 0 zenith ->
-  // 1 below the horizon.
+  // plate. Build a world reflection direction from the heightfield normal and
+  // the surface's WORLD normal (set by the gizmo); grazing toward the horizon
+  // lowers the elevation and the ripple normal shimmers the azimuth.
   let grazing = clamp(1.0 - surfUV.y, 0.0, 1.0);
-  // Base the reflection on the surface's WORLD normal (set by the gizmo): its
-  // z (toward camera) reads as "up toward sky", so a more vertical plane mirrors
-  // more overhead sky; tilting it re-aims the reflection. Grazing lowers the
-  // elevation toward the horizon and the ripple normal shimmers it.
   let wn = surface.worldNormal;
   let refl = normalize(vec3<f32>(
     wn.x * 1.5 + n.x * 2.2,
@@ -166,11 +138,7 @@ fn fs(in: VSOut) -> @location(0) vec4<f32> {
   let spec = pow(max(dot(n, halfV), 0.0), mix(18.0, 220.0, 1.0 - clamp(params.specularWidth, 0.0, 1.0)));
   col = col + spec * params.specularGain * (0.4 + 0.7 * wetAmt);
 
-  // ---- splash CROWN + central jet: this IS the splash. The drop craters the
-  // heightfield; the wave solver rebounds it into a raised ring + a centre jet
-  // that rises and falls. Raised water (positive ripple height) reads lighter —
-  // the "higher = brighter" heat-map the crown shape lives in — and is brightest
-  // on its steep flanks (Fresnel). No sprite: it is displaced, lit water. ----
+  // ---- splash CROWN + central jet: displaced, lit water (no sprite). ----
   let crown = smoothstep(0.015, 0.32, rippleH);
   col = col + vec3<f32>(0.85, 0.90, 1.0) * crown * (0.45 + 0.9 * fres) * wetAmt * params.splashHeight;
 
@@ -189,5 +157,67 @@ fn fs(in: VSOut) -> @location(0) vec4<f32> {
   col = col + params.edgeBead * 0.3 * edge * wetAmt;
 
   col = col * params.visualGain;
-  return vec4<f32>(encodeOut(col), 1.0);
+  return col;
+}
+
+@fragment
+fn fs(in: VSOut) -> @location(0) vec4<f32> {
+  let imgUV = in.uv;
+  var base = textureSampleLevel(colorIn, samp, imgUV, 0.0).rgb;
+
+  if (surface.enabled < 0.5) {
+    return vec4<f32>(encodeOut(base), 1.0);
+  }
+
+  let surfUV = apply_h(surface.homographyInv, imgUV);
+  let inBounds = surfUV.x >= 0.0 && surfUV.x <= 1.0 && surfUV.y >= 0.0 && surfUV.y <= 1.0;
+  if (!inBounds) {
+    return vec4<f32>(encodeOut(base), 1.0);
+  }
+
+  // ---- debug views ----
+  if (params.debugMode > 0.5) {
+    let mask = textureSampleLevel(maskTex, samp, surfUV, 0.0).r;
+    let state = textureSampleLevel(stateTex, samp, surfUV, 0.0);
+    let relief = textureSampleLevel(reliefTex, samp, surfUV, 0.0);
+    let flow = textureSampleLevel(flowTex, samp, surfUV, 0.0).xy;
+    var dbg = base;
+    let m = params.debugMode;
+    if (m < 1.5) { dbg = vec3<f32>(surfUV, 0.0); }
+    else if (m < 2.5) { dbg = vec3<f32>(fract(surfUV * 8.0), 0.5); }
+    else if (m < 3.5) { dbg = vec3<f32>(state.r * 0.5); }
+    else if (m < 4.5) { dbg = vec3<f32>(relief.r * 0.5 + 0.5); }
+    else if (m < 5.5) { dbg = vec3<f32>(flow * 0.5 + 0.5, 0.5); }
+    else if (m < 6.5) { dbg = vec3<f32>(0.0, state.g * 0.5, state.g); }
+    else if (m < 7.5) { dbg = vec3<f32>(state.b * 0.5 + 0.5); }
+    else { dbg = vec3<f32>(mask); }
+    dbg = mix(base, dbg, step(0.01, mask));
+    return vec4<f32>(encodeOut(dbg), 1.0);
+  }
+
+  return vec4<f32>(encodeOut(wetCompositeLinear(surfUV, imgUV, base)), 1.0);
+}
+
+// ---- warp mesh path: a bent plane feeds surface UV per vertex ----
+struct WarpVSOut {
+  @builtin(position) pos: vec4<f32>,
+  @location(0) imgUV: vec2<f32>,   // screen UV (the bent image position)
+  @location(1) surfUV: vec2<f32>,  // undeformed surface UV
+};
+
+@vertex
+fn vs_warp(@location(0) posImg: vec2<f32>, @location(1) suv: vec2<f32>) -> WarpVSOut {
+  var out: WarpVSOut;
+  out.imgUV = posImg;
+  out.surfUV = suv;
+  // image UV (y-down, [0,1]) -> clip space
+  out.pos = vec4<f32>(posImg.x * 2.0 - 1.0, 1.0 - posImg.y * 2.0, 0.0, 1.0);
+  return out;
+}
+
+@fragment
+fn fs_warp(in: WarpVSOut) -> @location(0) vec4<f32> {
+  let base = textureSampleLevel(colorIn, samp, in.imgUV, 0.0).rgb;
+  // linear intermediate (encode happens in the final fullscreen encode pass)
+  return vec4<f32>(wetCompositeLinear(in.surfUV, in.imgUV, base), 1.0);
 }

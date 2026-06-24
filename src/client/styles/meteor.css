@@ -130,6 +130,10 @@ body {
 .handle { fill: var(--accent-2); stroke: #000; stroke-width: 1; cursor: grab; }
 .normal-handle { fill: #7affc0; }
 .edge-handle { fill: var(--accent); rx: 2; }
+/* warp (slice/bend) grid */
+.warp-edge { fill: none; stroke: var(--accent-2); stroke-width: 1.5; }
+.warp-slice { stroke: var(--accent); stroke-width: 2; stroke-dasharray: 6 4; }
+.warp-handle { fill: var(--accent); }
 .field-move { fill: var(--accent); }
 .field-scale { fill: #b48cff; }
 .handle-label { fill: var(--text); font-size: 11px; }
