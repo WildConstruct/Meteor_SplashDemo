@@ -48,7 +48,7 @@ const CONTROLS = [
   { id: 'splashHeight', label: 'Crown height', min: 0, max: 6, step: 0.01, def: 0.8 },
   { id: 'dropletScale', label: 'Droplet scale', min: 0, max: 6, step: 0.01, def: 1.6 },
   { id: 'spread', label: 'Spray spread', min: 0, max: 4, step: 0.01, def: 1.4 },
-  { id: 'density', label: 'Rain density', min: 0, max: 1, step: 0.01, def: 0.5 },
+  { id: 'density', label: 'Rain density', min: 0, max: 1, step: 0.01, def: 0.65 },
 ];
 
 const overrides = {};
@@ -105,7 +105,7 @@ function groundSurface(id, name, { farL, farR, nearL, nearR }, seed) {
   ];
   const maskPath = quad.map((p) => ({ u: p.x, v: p.y }));
   return {
-    id, name, enabled: true, renderOrder: 0, simulationResolution: 256,
+    id, name, enabled: true, renderOrder: 0, simulationResolution: 512,
     normalDirection: -1.5708, normalScale: 0.05, materialResponseId: 'puddle-crown',
     maskPath, calibrationQuad: quad,
     flow: { baseFlow: { x: 0, y: 0.35 }, bias: { x: 0, y: 0 } },
@@ -113,7 +113,7 @@ function groundSurface(id, name, { farL, farR, nearL, nearR }, seed) {
     rainFields: [{
       id: `${id}-rain`, name: `${name} rain`, enabled: true, surfaceId: id,
       placementSeed: seed, responseSeed: seed + 7,
-      centerUV: { u: 0.5, v: 0.5 }, scaleUV: { x: 0.48, y: 0.48 }, rotation: 0,
+      centerUV: { u: 0.5, v: 0.5 }, scaleUV: { x: 0.9, y: 0.9 }, rotation: 0,
       density: overrides.density, falloff: 0.2, ratePerSecond: 40,
       startFrame: 0, endFrame: DURATION,
       // small drops, big pool spread over the long span => dense, tiny, continuous

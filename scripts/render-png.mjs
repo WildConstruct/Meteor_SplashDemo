@@ -135,7 +135,6 @@ async function frameToPng(frameIndex, dbg, name) {
   console.log(`wrote ${name} mean=${mean} topMargin(0.50,0.02)=${at(0.50, 0.02)} leftEdge(0.02,0.50)=${at(0.02, 0.50)} gap(0.50,0.55)=${at(0.50, 0.55)} mask(0.25,0.55)=${at(0.25, 0.55)}`);
 }
 
-await frameToPng(0, 0, 'beauty-f0.png');
-await frameToPng(160, 0, 'beauty-f160.png');
-await frameToPng(60, 0, 'beauty-f60.png');
+await frameToPng(450, 0, 'beauty-f450.png'); // long run: confirm no saturation/freeze
+await frameToPng(120, 0, 'beauty-f120.png');
 process.exit(0);

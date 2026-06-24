@@ -68,8 +68,8 @@ fn vs(@builtin(vertex_index) vid: u32, @builtin(instance_index) iid: u32) -> Dro
   let imgUV0 = apply_h(surface.homographyFwd, imp.surfaceUV);
   let center = imgUV0 + lateral * age + surface.normalDir * h * 6.0;
 
-  // Much smaller beads. Scale via params.dropletScale ("Droplet scale" slider).
-  let radius = 0.0012 * params.dropletScale * imp.dropSize * (0.6 + 0.4 * a1);
+  // Tiny beads. Scale via params.dropletScale ("Droplet scale" slider).
+  let radius = 0.0007 * params.dropletScale * imp.dropSize * (0.6 + 0.4 * a1);
   let q = QUAD[vid];
   let aspect = frame.resolution.x / max(frame.resolution.y, 1.0);
   let p = center + vec2<f32>(q.x, q.y * aspect) * radius;

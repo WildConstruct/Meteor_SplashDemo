@@ -32,15 +32,14 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     }
     // temporal kernel: sharp at birth, decaying over a few frames
     let tw = exp(-age * 0.6);
-    let radius = 0.004 + 0.008 * imp.dropSize * max(0.2, params.splashWidth) * max(0.2, imp.widthOv);
+    let radius = 0.0025 + 0.004 * imp.dropSize * max(0.2, params.splashWidth) * max(0.2, imp.widthOv);
     let d = distance(uv, imp.surfaceUV);
     let spatial = exp(-(d * d) / (radius * radius));
     wet = wet + imp.wetnessDeposit * spatial * tw;
     water = water + imp.waterDeposit * spatial * tw;
-    // Ripple impulse gets a slightly wider footprint than the wetness splat so
-    // each drop is one smooth (not single-texel) ring — but kept SMALL so the
-    // rings read tight and dense like real rain on water.
-    let rippleRadius = 0.007 + 0.006 * imp.dropSize;
+    // Ripple impulse footprint kept small (a couple of texels at 512 sim res) so
+    // each drop launches a tight ring — small and dense like real rain on water.
+    let rippleRadius = 0.004 + 0.003 * imp.dropSize;
     let rippleSpatial = exp(-(d * d) / (rippleRadius * rippleRadius));
     ripple = ripple + imp.rippleImpulse * rippleSpatial * exp(-age * 1.5);
   }
