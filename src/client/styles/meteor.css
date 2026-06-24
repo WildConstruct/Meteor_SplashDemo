@@ -105,12 +105,16 @@ body {
 .frame-readout { font-variant-numeric: tabular-nums; color: var(--muted); min-width: 90px; }
 .timeline .loop { color: var(--muted); font-size: 11px; }
 
-/* inspector floating panel */
+/* inspector floating panel — its background must NOT eat clicks meant for the
+   overlay handles beneath it (corners/cutouts often sit under the top-left). The
+   container is click-through; only its actual controls capture pointer events. */
 .inspector {
   position: absolute; top: 12px; left: 12px; width: 240px;
   background: rgba(23,26,33,.94); border: 1px solid var(--line); border-radius: 8px;
   padding: 10px; backdrop-filter: blur(4px);
+  pointer-events: none;
 }
+.inspector > * { pointer-events: auto; }
 .inspector-title { font-weight: 700; margin-bottom: 6px; color: var(--accent); }
 
 /* overlay svg styling */

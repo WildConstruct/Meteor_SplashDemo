@@ -62,10 +62,15 @@ export class EditorController {
       // intentionally gone — clutter + per-frame DOM churn that made dragging
       // sluggish. The calibration quad below is the visible editable outline.
       renderSurface(g, this.vp, surface, surfSelected);
+      // Paint order = hit priority (SVG: last drawn wins the click). The normal
+      // WHEEL has a big disc-shaped hit area, so it goes UNDER the precise point
+      // handles (corners, edges, warp, cutouts) — otherwise a cutout/corner point
+      // sitting inside the wheel can never be grabbed. The wheel still catches
+      // clicks in its empty areas (drag-anywhere-to-aim) where no point overlaps.
+      renderNormal(g, this.vp, surface, surfSelected);
       renderQuad(g, this.vp, surface, surfSelected);
       renderWarp(g, this.vp, surface, surfSelected);
       renderCutouts(g, this.vp, surface, surfSelected);
-      renderNormal(g, this.vp, surface, surfSelected);
       for (const field of surface.rainFields ?? []) {
         renderField(g, this.vp, surface, field, sel.type === 'field' && sel.id === field.id, ctx);
       }
@@ -346,6 +351,9 @@ export class EditorController {
       ins.appendChild(this._slider('Drip from tilt', s.drip?.fromTilt ?? 0, 0, 1, 0.01, (v) => {
         s.drip = { speed: 0.25, width: 0.012, meander: 0.5, amount: 0, ...(s.drip || {}), fromTilt: v };
         this.state.emit('surface');
+      }));
+      ins.appendChild(this._slider('World / Ripple scale', this.state.params.get('rippleScale') ?? 1, 0.2, 4, 0.01, (v) => {
+        this.state.setParam('rippleScale', v); // global; mirrored in the Splash params section
       }));
       // ---- bend (slice / warp) ----
       if (isWarped(s)) {
