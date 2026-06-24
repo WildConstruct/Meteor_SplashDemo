@@ -38,7 +38,7 @@ export function packFrame({ width, height, pixelAspect, timeSeconds, frameIndex,
  * (x right, y up, z toward camera) — it aims the sky reflection and the splash
  * lift. normalDir is its screen-space splash-lift projection.
  */
-export function packSurface({ forward, inverse, normalDir, enabled, simResolution, worldNormal }) {
+export function packSurface({ forward, inverse, normalDir, enabled, simResolution, worldNormal, aspect }) {
   const a = new Float32Array(32);
   packMat3(forward, a, 0); // 0..11
   packMat3(inverse, a, 12); // 12..23
@@ -49,7 +49,7 @@ export function packSurface({ forward, inverse, normalDir, enabled, simResolutio
   a[28] = worldNormal?.x ?? 0;
   a[29] = worldNormal?.y ?? 0;
   a[30] = worldNormal?.z ?? 1;
-  // a[31] = pad
+  a[31] = aspect ?? 1; // quad world aspect (width/height) — keeps footprints round
   return a;
 }
 

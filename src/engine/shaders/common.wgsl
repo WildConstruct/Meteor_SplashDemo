@@ -130,6 +130,7 @@ struct Surface {
   enabled: f32,
   simResolution: f32,
   worldNormal: vec3<f32>,     // 3D world normal of the plane (x right, y up, z toward camera)
+  aspect: f32,                // quad world aspect (width/height) — keeps sim footprints round
 };
 
 // One active impact (deposit_stamp / splash / droplets). 16 f32 = 64 bytes.

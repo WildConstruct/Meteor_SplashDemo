@@ -13,7 +13,7 @@ import {
   packFrame, packSurface, packImpacts, packCompositeConfig, packFlowConfig,
 } from './gpu/Packing.js';
 import { ParameterState } from './ParameterState.js';
-import { buildSurfaceTransforms, normalProjection, surfaceWorldNormal } from './geometry/SurfaceTransforms.js';
+import { buildSurfaceTransforms, normalProjection, surfaceWorldNormal, surfaceAspect } from './geometry/SurfaceTransforms.js';
 import { rasterizeMask } from './geometry/SurfaceMask.js';
 import { isWarped, tessellateWarp } from './geometry/SurfaceWarp.js';
 import { rasterizeRelief } from './geometry/ReliefShapes.js';
@@ -734,7 +734,7 @@ export class MeteorEngine {
     this.queue.writeBuffer(rt.surfaceUniform, 0, packSurface({
       forward: rt.transforms.forward, inverse: rt.transforms.inverse,
       normalDir: np, enabled: rt.surface.enabled !== false, simResolution: rt.res,
-      worldNormal: surfaceWorldNormal(rt.surface),
+      worldNormal: surfaceWorldNormal(rt.surface), aspect: surfaceAspect(rt.surface),
     }));
     this.queue.writeBuffer(rt.flowUniform, 0, packFlowConfig(rt.flowConfig));
   }
@@ -863,6 +863,7 @@ export class MeteorEngine {
         { binding: 1, resource: { buffer: this.uniformBuffers.params } },
         { binding: 2, resource: { buffer: rt.impactBuffer } },
         { binding: 3, resource: rt.deposit.createView() },
+        { binding: 4, resource: { buffer: rt.surfaceUniform } },
       ],
     });
   }

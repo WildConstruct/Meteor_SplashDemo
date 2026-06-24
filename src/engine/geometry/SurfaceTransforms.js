@@ -40,6 +40,23 @@ export function surfaceWorldNormal(surface) {
 }
 
 /**
+ * The quad's world aspect ratio (width / height), estimated from its edge
+ * lengths in image UV. Used to keep the square sim's footprints round in the
+ * world plane instead of stretched into the (often very wide) calibration quad.
+ */
+export function surfaceAspect(surface) {
+  const q = (surface.calibrationQuad || []).map((p) =>
+    Array.isArray(p) ? { x: p[0], y: p[1] } : p
+  );
+  if (q.length !== 4) return 1;
+  const len = (a, b) => Math.hypot(b.x - a.x, b.y - a.y);
+  const w = (len(q[0], q[1]) + len(q[3], q[2])) / 2; // top + bottom edges
+  const h = (len(q[0], q[3]) + len(q[1], q[2])) / 2; // left + right edges
+  if (h < 1e-5) return 1;
+  return Math.min(8, Math.max(0.125, w / h));
+}
+
+/**
  * Art-directed normal as a 2D screen-space offset direction for splash height
  * (build plan §11.4, §12.3), derived from the 3D world normal: the in-screen
  * (x, y) components scaled by normalScale (world up -> screen up, hence -y).

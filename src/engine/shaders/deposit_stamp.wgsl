@@ -9,6 +9,7 @@
 @group(0) @binding(1) var<uniform> params: Params;
 @group(0) @binding(2) var<storage, read> impacts: array<Impact>;
 @group(0) @binding(3) var depositTex: texture_storage_2d<rgba16float, write>;
+@group(0) @binding(4) var<uniform> surface: Surface;
 
 @compute @workgroup_size(8, 8, 1)
 fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
@@ -33,7 +34,12 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     // temporal kernel: sharp at birth, decaying over a few frames
     let tw = exp(-age * 0.6);
     let radius = 0.0025 + 0.004 * imp.dropSize * max(0.2, params.splashWidth) * max(0.2, imp.widthOv);
-    let d = distance(uv, imp.surfaceUV);
+    // Aspect-correct the footprint: the square sim UV is stretched onto a (often
+    // very wide) calibration quad, so a circle in UV is an ellipse in the world
+    // plane. Scaling the u offset by the quad aspect makes drops land as ROUND
+    // rings in the world (the perspective then foreshortens them naturally).
+    let delta = (uv - imp.surfaceUV) * vec2<f32>(surface.aspect, 1.0);
+    let d = length(delta);
     let spatial = exp(-(d * d) / (radius * radius));
     wet = wet + imp.wetnessDeposit * spatial * tw;
     water = water + imp.waterDeposit * spatial * tw;
