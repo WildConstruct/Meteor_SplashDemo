@@ -134,6 +134,20 @@ export class EditorController {
       this.drag = { type: 'quad', surfaceId: t.dataset.surface, corner: Number(t.dataset.corner) };
       return;
     }
+    if (handle === 'edge') {
+      const s = this.state.surface(t.dataset.surface);
+      this.state.select('surface', t.dataset.surface);
+      const i = Number(t.dataset.edge), j = (i + 1) % 4;
+      const q = s.calibrationQuad.map((c) => ({ x: c.x ?? c[0], y: c.y ?? c[1] }));
+      const ex = q[j].x - q[i].x, ey = q[j].y - q[i].y;
+      const len = Math.hypot(ex, ey) || 1;
+      this.drag = {
+        type: 'edge', surfaceId: t.dataset.surface, i, j,
+        start: this.vp.eventToUv(e), origQuad: q,
+        normal: { x: -ey / len, y: ex / len }, // perpendicular to the edge (UV space)
+      };
+      return;
+    }
     if (handle === 'normal-disc') {
       this.state.select('surface', t.dataset.surface);
       this.drag = { type: 'normal-disc', surfaceId: t.dataset.surface };
@@ -166,7 +180,19 @@ export class EditorController {
     switch (this.drag.type) {
       case 'quad': {
         const s = this.state.surface(this.drag.surfaceId);
-        s.calibrationQuad[this.drag.corner] = { x: uv.u, y: uv.v };
+        this._setQuadCorner(s, this.drag.corner, uv.u, uv.v);
+        this.state.emit('surface');
+        break;
+      }
+      case 'edge': {
+        // push a whole edge in/out along its (perpendicular) normal: both of the
+        // edge's corners move by the drag's projection onto that normal.
+        const s = this.state.surface(this.drag.surfaceId);
+        const d = { u: uv.u - this.drag.start.u, v: uv.v - this.drag.start.v };
+        const proj = d.u * this.drag.normal.x + d.v * this.drag.normal.y;
+        const { i, j, origQuad, normal } = this.drag;
+        this._setQuadCorner(s, i, origQuad[i].x + proj * normal.x, origQuad[i].y + proj * normal.y);
+        this._setQuadCorner(s, j, origQuad[j].x + proj * normal.x, origQuad[j].y + proj * normal.y);
         this.state.emit('surface');
         break;
       }
@@ -223,6 +249,13 @@ export class EditorController {
     }
   }
 
+  /** Move a calibration corner, keeping a matching 4-point mask vertex in sync so
+   *  the visible wet region tracks the plane the user is shaping. */
+  _setQuadCorner(s, idx, x, y) {
+    s.calibrationQuad[idx] = { x, y };
+    if ((s.maskPath?.length) === 4) s.maskPath[idx] = { u: x, v: y };
+  }
+
   _evScreen(e) {
     const { left, top } = this.vp.size();
     return { x: e.clientX - left, y: e.clientY - top };
@@ -275,7 +308,7 @@ export class EditorController {
       ins.appendChild(this._title(`Surface: ${s.name || s.id}`));
       const note = document.createElement('div');
       note.className = 'muted';
-      note.textContent = 'Drag the plane to move it · A·B·C·D to calibrate · the wheel to aim · a cutout to carve';
+      note.textContent = 'Drag the plane to move · corners or edges to reshape · the wheel to aim · a cutout to carve';
       ins.appendChild(note);
       ins.appendChild(this._slider('Edge feather', s.maskFeather ?? 0.12, 0, 1, 0.01, (v) => {
         s.maskFeather = v;

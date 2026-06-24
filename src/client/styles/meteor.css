@@ -129,6 +129,7 @@ body {
 .calib-quad.selected { stroke: var(--accent-2); }
 .handle { fill: var(--accent-2); stroke: #000; stroke-width: 1; cursor: grab; }
 .normal-handle { fill: #7affc0; }
+.edge-handle { fill: var(--accent); rx: 2; }
 .field-move { fill: var(--accent); }
 .field-scale { fill: #b48cff; }
 .handle-label { fill: var(--text); font-size: 11px; }

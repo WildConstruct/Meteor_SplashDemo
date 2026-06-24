@@ -19,6 +19,18 @@ export function renderQuad(group, vp, surface, selected) {
   }));
 
   if (!selected) return;
+
+  // edge midpoint handles — drag an edge along its normal to push that side
+  // in/out (both of the edge's corners move together).
+  screen.forEach((s, i) => {
+    const a = screen[i], b = screen[(i + 1) % 4];
+    group.appendChild(svgEl('rect', {
+      x: (a.x + b.x) / 2 - 5, y: (a.y + b.y) / 2 - 5, width: 10, height: 10,
+      class: 'handle edge-handle', 'data-handle': 'edge',
+      'data-surface': surface.id, 'data-edge': i,
+    }));
+  });
+
   screen.forEach((s, i) => {
     group.appendChild(svgEl('circle', {
       cx: s.x, cy: s.y, r: 7, class: 'handle corner-handle',
