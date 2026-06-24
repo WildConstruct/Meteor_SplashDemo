@@ -51,8 +51,10 @@ warp.grid[1][0].v += 0.08; warp.grid[1][1].v += 0.08; // bend the slice row down
 warp.grid[2][0].v += 0.16; warp.grid[2][1].v += 0.16; // and the near edge further
 warp.blend = 0.5;
 s.warp = warp;
-s.drip = { amount: 0.8, speed: 0.3, width: 0.012, meander: 0.6 }; // exercise rivulets too
-console.log(`warped surface "${s.id}": rows=${warp.grid.length}, blend=${warp.blend}, drip=${s.drip.amount}`);
+// tilt the plane toward vertical + drive drips from that tilt (no manual amount)
+s.worldNormal = { x: 0, y: 0.85, z: 0.53 };
+s.drip = { amount: 0, fromTilt: 1.0, speed: 0.3, width: 0.012, meander: 0.6 };
+console.log(`warped surface "${s.id}": rows=${warp.grid.length}, blend=${warp.blend}, tilt-driven drip`);
 
 device.pushErrorScope('validation');
 engine.setProject(project);

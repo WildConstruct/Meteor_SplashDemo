@@ -35,6 +35,11 @@ const SHADER_FILES = [
   'flow_build', 'wet_composite', 'splash', 'droplets', 'rivulet_update',
 ];
 
+const smoothstep = (e0, e1, x) => {
+  const t = Math.min(1, Math.max(0, (x - e0) / (e1 - e0)));
+  return t * t * (3 - 2 * t);
+};
+
 export class MeteorEngine {
   constructor({ device, queue, outputFormat, shaderSources, diagnostics }) {
     this.device = device;
@@ -525,8 +530,9 @@ export class MeteorEngine {
       }));
 
       const enc = dev.createCommandEncoder();
-      // rivulets (streaming) — only when this surface has drips enabled
-      if ((rt.surface.drip?.amount ?? 0) > 0.001) {
+      // rivulets (streaming) — run when drip is active (manual amount OR the
+      // surface tilting up toward vertical via the orientation wheel)
+      if (this._effectiveDrip(rt.surface).amount > 0.001) {
         const pass = enc.beginComputePass();
         pass.setPipeline(this.pipelines.rivuletUpdate);
         pass.setBindGroup(0, this._rivuletBindGroup(rt));
@@ -747,6 +753,28 @@ export class MeteorEngine {
     }
   }
 
+  /**
+   * Effective drip config for a surface, with the streaming driven by the
+   * surface's VERTICALITY (from the orientation wheel): as the plane tilts up
+   * toward vertical, the flow turns on (and runs slightly faster). `drip.amount`
+   * is an always-on manual floor; `drip.fromTilt` (0..1) scales the tilt-driven
+   * contribution. Verticality = how far the world normal leans off facing the
+   * camera (the gizmo knob distance): 0 = flat/pooling, 1 = upright/streaming.
+   */
+  _effectiveDrip(surface) {
+    const d = surface.drip || {};
+    const wn = surfaceWorldNormal(surface);
+    const lean = Math.hypot(wn.x, wn.y);          // 0 facing camera .. 1 edge-on
+    const V = smoothstep(0.4, 0.9, lean);         // verticality
+    const amount = Math.max(d.amount ?? 0, (d.fromTilt ?? 0) * V);
+    return {
+      amount,
+      speed: (d.speed ?? 0.25) * (0.6 + 0.8 * V), // steeper => slightly faster
+      width: d.width ?? 0.012,
+      meander: d.meander ?? 0.5,
+    };
+  }
+
   _writeSurfaceUniform(rt) {
     const np = normalProjection(rt.surface);
     this.queue.writeBuffer(rt.surfaceUniform, 0, packSurface({
@@ -755,7 +783,7 @@ export class MeteorEngine {
       worldNormal: surfaceWorldNormal(rt.surface), aspect: surfaceAspect(rt.surface),
     }));
     this.queue.writeBuffer(rt.flowUniform, 0, packFlowConfig(rt.flowConfig));
-    this.queue.writeBuffer(rt.dripUniform, 0, packDripConfig(rt.surface.drip));
+    this.queue.writeBuffer(rt.dripUniform, 0, packDripConfig(this._effectiveDrip(rt.surface)));
     // (re)seed the rivulet positions once per compile so streaming is deterministic
     if (!rt.rivuletsSeeded) {
       this.queue.writeBuffer(rt.rivuletBuffer, 0, packInitialRivulets((this.project.globalSeed ?? 1) + 1));

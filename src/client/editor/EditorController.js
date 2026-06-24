@@ -343,6 +343,10 @@ export class EditorController {
         s.drip = { speed: 0.25, width: 0.012, meander: 0.5, ...(s.drip || {}), amount: v };
         this.state.emit('surface');
       }));
+      ins.appendChild(this._slider('Drip from tilt', s.drip?.fromTilt ?? 0, 0, 1, 0.01, (v) => {
+        s.drip = { speed: 0.25, width: 0.012, meander: 0.5, amount: 0, ...(s.drip || {}), fromTilt: v };
+        this.state.emit('surface');
+      }));
       // ---- bend (slice / warp) ----
       if (isWarped(s)) {
         ins.appendChild(this._slider('Bend blend', s.warp.blend ?? 0.5, 0, 1, 0.01, (v) => {
