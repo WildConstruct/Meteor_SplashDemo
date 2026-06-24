@@ -26,7 +26,13 @@
         <button id="reset">Reset look</button>
         <a id="editor-link" href="app.html">Full editor →</a>
       </div>
-      <p class="hint">Water over a <b>dark</b> (left) and <b>light</b> (right) surface, ground in perspective. The full editor is at <code>/app.html</code>.</p>
+      <div class="row">
+        <button id="load-plate">Load plate…</button>
+        <button id="load-sky">Load sky/env…</button>
+        <input id="file-plate" type="file" accept="image/*" hidden />
+        <input id="file-sky" type="file" accept="image/*" hidden />
+      </div>
+      <p class="hint">Water over a <b>dark</b> (left) and <b>light</b> (right) surface, ground in perspective. <b>Load plate</b> = the ground photo; <b>Load sky/env</b> = the image the puddles reflect. Full editor at <code>/app.html</code>.</p>
     </section>
 
     <!-- The full Meteor editor lives at /app.html; this page is the wet-shader

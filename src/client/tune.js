@@ -21,6 +21,10 @@ const dom = {
   reset: document.getElementById('reset'),
   panel: document.getElementById('panel'),
   toggle: document.getElementById('panel-toggle'),
+  loadPlate: document.getElementById('load-plate'),
+  loadSky: document.getElementById('load-sky'),
+  filePlate: document.getElementById('file-plate'),
+  fileSky: document.getElementById('file-sky'),
 };
 
 // ---- look parameters exposed as sliders (all NON-history params => no sim reset,
@@ -196,6 +200,20 @@ function wireControls() {
     densityDirty = true;
   });
   dom.toggle.addEventListener('click', () => dom.panel.classList.toggle('hidden'));
+
+  // Load a real ground plate / sky image on-device and tune against it.
+  dom.loadPlate.addEventListener('click', () => dom.filePlate.click());
+  dom.loadSky.addEventListener('click', () => dom.fileSky.click());
+  dom.filePlate.addEventListener('change', async (e) => {
+    const f = e.target.files?.[0]; if (!f) return;
+    const bmp = await createImageBitmap(f, { colorSpaceConversion: 'none' });
+    plate = uploadPlate(host.device, bmp);
+  });
+  dom.fileSky.addEventListener('change', async (e) => {
+    const f = e.target.files?.[0]; if (!f) return;
+    const bmp = await createImageBitmap(f, { colorSpaceConversion: 'none' });
+    engine.registerAssets({ environment: uploadPlate(host.device, bmp) });
+  });
 }
 
 function loop(now) {

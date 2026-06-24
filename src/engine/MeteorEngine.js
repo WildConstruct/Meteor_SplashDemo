@@ -172,7 +172,7 @@ export class MeteorEngine {
         uni(0, stage.FRAGMENT), uni(1, stage.FRAGMENT), uni(2, stage.FRAGMENT),
         tex(3, stage.FRAGMENT), tex(4, stage.FRAGMENT), tex(5, stage.FRAGMENT),
         tex(6, stage.FRAGMENT), tex(7, stage.FRAGMENT), tex(8, stage.FRAGMENT),
-        samp(9, stage.FRAGMENT), uni(10, stage.FRAGMENT),
+        samp(9, stage.FRAGMENT), uni(10, stage.FRAGMENT), tex(11, stage.FRAGMENT),
       ],
     });
 
@@ -772,8 +772,38 @@ export class MeteorEngine {
         { binding: 8, resource: (this.assets.microNormal ?? rt.relief).createView() },
         { binding: 9, resource: this.samplers.repeat },
         { binding: 10, resource: { buffer: this.uniformBuffers.compositeLinear } },
+        { binding: 11, resource: this._environmentView() },
       ],
     });
+  }
+
+  // The sky/scene the wet surface reflects. Uses a registered environment asset
+  // if present, else a lazily-built vertical sky gradient (blue at the top ->
+  // pale horizon) so puddles reflect something believable out of the box.
+  _environmentView() {
+    if (this.assets.environment) return this.assets.environment.createView();
+    this._defaultEnv ??= (() => {
+      const w = 4;
+      const h = 64;
+      const tex = this.device.createTexture({
+        size: { width: w, height: h }, format: 'rgba8unorm',
+        usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+      });
+      const bpr = Math.ceil((w * 4) / 256) * 256;
+      const buf = new Uint8Array(bpr * h);
+      const lerp = (a, b, t) => Math.round(a + (b - a) * t);
+      for (let y = 0; y < h; y++) {
+        const t = y / (h - 1); // 0 = sky top, 1 = horizon
+        const r = lerp(64, 198, t); const g = lerp(118, 206, t); const b = lerp(196, 220, t);
+        for (let x = 0; x < w; x++) {
+          const o = y * bpr + x * 4;
+          buf[o] = r; buf[o + 1] = g; buf[o + 2] = b; buf[o + 3] = 255;
+        }
+      }
+      this.device.queue.writeTexture({ texture: tex }, buf, { bytesPerRow: bpr, rowsPerImage: h }, { width: w, height: h });
+      return tex;
+    })();
+    return this._defaultEnv.createView();
   }
 
   _encodeBindGroup(colorInView) {
@@ -806,6 +836,7 @@ export class MeteorEngine {
         { binding: 8, resource: dummy.createView() },
         { binding: 9, resource: this.samplers.linear },
         { binding: 10, resource: { buffer: this.uniformBuffers.compositeEncode } },
+        { binding: 11, resource: this._environmentView() },
       ],
     });
   }

@@ -24,6 +24,7 @@ struct CompositeConfig {
 @group(0) @binding(8) var microTex: texture_2d<f32>;
 @group(0) @binding(9) var samp: sampler;
 @group(0) @binding(10) var<uniform> cfg: CompositeConfig;
+@group(0) @binding(11) var envTex: texture_2d<f32>; // environment/sky the puddle reflects
 
 @vertex
 fn vs(@builtin(vertex_index) vid: u32) -> VSOut {
@@ -124,13 +125,18 @@ fn fs(in: VSOut) -> @location(0) vec4<f32> {
   // puddle in the scene), ripple-distorted, tinted cool and lifted by bright
   // reflected-light streaks. This is the vertical reflection you see in puddles.
   let grazing = clamp(1.0 - surfUV.y, 0.0, 1.0);
-  let upY = clamp(imgUV.y - (0.06 + 0.28 * grazing) - n.y * distMag * 2.0, 0.0, 1.0);
-  let aboveCol = textureSampleLevel(colorIn, samp, vec2<f32>(imgUV.x + n.x * distMag * 1.5, upY), 0.0).rgb;
-  // With no real environment to mirror, the reflection is a cool sky tint
-  // brightened by how bright the scene above the puddle is (so reflected lights
-  // still read) — this avoids banding the plate's own content into the puddle.
-  let skyTint = vec3<f32>(0.55, 0.64, 0.80);
-  let reflCol = skyTint * (0.55 + 0.9 * luminance(aboveCol)) + skyTint * ripSlope * 0.5;
+  // Reflect an ENVIRONMENT image (sky / street scene). The puddle mirrors what is
+  // "above" it: map the surface's far->near axis to the env's vertical axis and
+  // ripple-distort the lookup, so the reflection wobbles with the waves. This is
+  // what gives real poles/sky-in-puddle reflections that a lone plate can't.
+  // far/grazing reflects the sky (top of the env image, v->0); near reflects the
+  // horizon (v->~0.8). ripple normal wobbles the lookup.
+  let envUV = vec2<f32>(fract(surfUV.x + n.x * distMag * 3.0),
+                        clamp((1.0 - grazing) * 0.8 + n.y * distMag * 3.0, 0.0, 1.0));
+  let envCol = textureSampleLevel(envTex, samp, envUV, 0.0).rgb;
+  // Tint slightly cool and lift on ripple crests; this still reads fine with the
+  // default sky-gradient env when the user hasn't supplied their own.
+  let reflCol = envCol * (0.9 + 0.4 * grazing) + vec3<f32>(0.5, 0.58, 0.72) * ripSlope * 0.5;
 
   // Fresnel: rises toward the grazing far edge and on tilted ripple flanks.
   let fres = clamp(mix(0.06, 0.9, grazing * grazing) + fresnelTilt(n) * 0.8, 0.0, 1.0);
