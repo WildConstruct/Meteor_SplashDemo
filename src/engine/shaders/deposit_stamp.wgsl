@@ -41,13 +41,16 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let delta = (uv - imp.surfaceUV) * vec2<f32>(surface.aspect, 1.0);
     let d = length(delta);
     let spatial = exp(-(d * d) / (radius * radius));
-    wet = wet + imp.wetnessDeposit * spatial * tw;
-    water = water + imp.waterDeposit * spatial * tw;
-    // Ripple impulse footprint kept small (a couple of texels at 512 sim res) so
-    // each drop launches a tight ring — small and dense like real rain on water.
-    let rippleRadius = 0.004 + 0.003 * imp.dropSize;
+    // Puddle gate at the IMPACT point: a drop only rings where there is standing
+    // water. On a dry patch it still dampens the ground a touch but emits no ring.
+    let gate = puddleGate(imp.surfaceUV, params.puddleAmount, params.puddleScale, params.puddleEdge);
+    wet = wet + imp.wetnessDeposit * spatial * tw * (0.3 + 0.7 * gate);
+    water = water + imp.waterDeposit * spatial * tw * gate;
+    // Ripple impulse footprint kept TIGHT (~2.5x smaller than before) so each drop
+    // launches a small ring — dense like real rain on a puddle, not giant rings.
+    let rippleRadius = 0.0016 + 0.0012 * imp.dropSize;
     let rippleSpatial = exp(-(d * d) / (rippleRadius * rippleRadius));
-    ripple = ripple + imp.rippleImpulse * rippleSpatial * exp(-age * 1.5);
+    ripple = ripple + imp.rippleImpulse * rippleSpatial * exp(-age * 1.5) * gate;
   }
 
   textureStore(depositTex, vec2<i32>(i32(gid.x), i32(gid.y)),

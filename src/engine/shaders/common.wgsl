@@ -77,6 +77,26 @@ fn fbm2(p_in: vec2<f32>) -> f32 {
   return v / 0.9375; // normalise sum of amplitudes (0.5+0.25+0.125+0.0625)
 }
 
+// Puddle membership in [0,1] at a surface-UV point: 1 = pooled, 0 = dry. `edge`
+// sharpens the boundary. Shared by the composite (wet look) AND the deposit pass
+// (so rings only emit where there's water to ring).
+fn puddleField(uv: vec2<f32>, scale: f32, edge: f32) -> f32 {
+  // domain warp the sample point so puddles read as organic pools with ragged
+  // edges instead of smooth round blobs (the "breakup" the wet/dry look needs).
+  let warp = vec2<f32>(
+    fbm2(uv * scale * 0.5 + vec2<f32>(11.3, 5.1)),
+    fbm2(uv * scale * 0.5 + vec2<f32>(41.7, 23.9)),
+  ) - 0.5;
+  let pud = fbm2(uv * scale + warp * 0.7);
+  let e = clamp(edge, 0.0, 0.98);
+  return smoothstep(0.5 - (1.0 - e) * 0.5, 0.5 + (1.0 - e) * 0.5, pud);
+}
+
+// Blend between "wet everywhere" (amount 0) and "wet only in puddles" (amount 1).
+fn puddleGate(uv: vec2<f32>, amount: f32, scale: f32, edge: f32) -> f32 {
+  return mix(1.0, puddleField(uv, scale, edge), clamp(amount, 0.0, 1.0));
+}
+
 // ---- shared uniform structs ----
 // Packed scalar parameters. Field ORDER must match ParameterState.WGSL_PARAM_IDS
 // (see docs/shader-bindings.md). 30 scalars.

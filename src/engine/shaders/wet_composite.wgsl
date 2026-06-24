@@ -73,10 +73,8 @@ fn wetCompositeLinear(surfUV: vec2<f32>, imgUV: vec2<f32>, base: vec3<f32>) -> v
   // Amount fades between uniform wetness and noise-carved puddles; Scale sets the
   // blob frequency; Edge sharpens the puddle boundary. Accumulated `wet` from
   // drops always pushes toward saturated on top.
-  let pud = fbm2(surfUV * params.puddleScale);
-  let e = clamp(params.puddleEdge, 0.0, 0.98);
-  let puddle = smoothstep(0.5 - (1.0 - e) * 0.5, 0.5 + (1.0 - e) * 0.5, pud);
-  let wetFloor = mask * params.waterLevel * mix(1.0, puddle, params.puddleAmount);
+  let gate = puddleGate(surfUV, params.puddleAmount, params.puddleScale, params.puddleEdge);
+  let wetFloor = mask * params.waterLevel * gate;
   let wetAmt = clamp(max(wet, wetFloor), 0.0, 1.0);
   let pool = clamp(water, 0.0, 1.0);
 
@@ -147,17 +145,20 @@ fn wetCompositeLinear(surfUV: vec2<f32>, imgUV: vec2<f32>, base: vec3<f32>) -> v
   let spec = pow(max(dot(n, halfV), 0.0), mix(18.0, 220.0, 1.0 - clamp(params.specularWidth, 0.0, 1.0)));
   col = col + spec * params.specularGain * (0.4 + 0.7 * wetAmt);
 
-  // ---- splash CROWN + central jet: displaced, lit water (no sprite). ----
-  let crown = smoothstep(0.015, 0.32, rippleH);
-  col = col + vec3<f32>(0.85, 0.90, 1.0) * crown * (0.45 + 0.9 * fres) * wetAmt * params.splashHeight;
+  // ---- splash CROWN + central jet: displaced, lit water (no sprite). The crown
+  // brightness is scaled DOWN (0.4) so the Splash Height slider ramps gradually
+  // across its range instead of blowing to white within the first fraction. ----
+  let crown = smoothstep(0.02, 0.4, rippleH);
+  col = col + vec3<f32>(0.85, 0.90, 1.0) * crown * (0.45 + 0.9 * fres) * wetAmt * params.splashHeight * 0.4;
 
   // ---- reflective pooling: standing water is more mirror-like + glints harder.
   col = mix(col, reflCol, pool * 0.4 * params.poolHighlight);
   col = col + params.poolHighlight * 0.4 * pool * spec;
 
-  // ---- flow streaks (subtle directional smear on the wet sheen) ----
-  let streak = sin((surfUV.x * flow.y - surfUV.y * flow.x) * 60.0) * 0.5 + 0.5;
-  col = col * (1.0 - params.flowStreakStrength * 0.06 * streak * wetAmt);
+  // ---- flow streaks (subtle directional smear on the wet sheen) — low frequency
+  // and gentle so they read as faint runoff, not a confusing repeating glint ----
+  let streak = sin((surfUV.x * flow.y - surfUV.y * flow.x) * 28.0) * 0.5 + 0.5;
+  col = col * (1.0 - params.flowStreakStrength * 0.05 * streak * wetAmt);
 
   // ---- edge bead near mask boundary ----
   let beadL = textureSampleLevel(maskTex, samp, surfUV - vec2<f32>(texel, 0.0), 0.0).r;

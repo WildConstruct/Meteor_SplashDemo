@@ -357,7 +357,7 @@
       "name": "Flow-Streak Strength",
       "section": "Look",
       "type": "float",
-      "default": 0.5,
+      "default": 0.15,
       "min": 0,
       "max": 2,
       "step": 0.01,

@@ -83,9 +83,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
   // damping let ripple energy pile up until the height clamped everywhere and the
   // wave froze ('stopped reacting'). Stronger damping holds a low, bounded
   // steady state — rings stay lively AND fade sooner, so they read smaller/denser.
-  vel = vel * 0.90;
+  vel = vel * 0.94;                  // heavier damping => rings decay sooner = smaller
   vel = vel - deposit.b;             // raindrop dimples the surface, then rebounds
-  var hgt = (center.b + vel) * 0.997; // gentle height bleed prevents slow DC buildup
+  var hgt = (center.b + vel) * 0.994; // gentle height bleed prevents slow DC buildup
   hgt = clamp(hgt, -3.0, 3.0);
 
   // --- mask boundary ---
