@@ -103,10 +103,16 @@ const bpr = Math.ceil((W * 4) / 256) * 256;
 const readBuf = device.createBuffer({ size: bpr * H, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
 
 async function frameToPng(frameIndex, dbg, name) {
-  engine.render({
+  // STEP mode reproduces the BROWSER's pattern: advance ONE frame per render call
+  // (so _ensureSurfaceTextures runs each frame). Without the ping-pong fix this
+  // shows the sim failing to accumulate; with it, the wet state evolves like a
+  // real frame loop. Default (no STEP) jumps straight to frameIndex in one call.
+  const renderAt = (f) => engine.render({
     inputTextureView: plate.createView(), outputTextureView: output.createView(),
-    width: W, height: H, pixelAspect: 1, frameIndex, timeSeconds: frameIndex / 30, frameRate: 30, debugMode: dbg,
+    width: W, height: H, pixelAspect: 1, frameIndex: f, timeSeconds: f / 30, frameRate: 30, debugMode: dbg,
   });
+  if (process.env.STEP) { engine.resetSimulation({}); for (let f = 0; f <= frameIndex; f++) renderAt(f); }
+  else renderAt(frameIndex);
   const enc = device.createCommandEncoder();
   enc.copyTextureToBuffer({ texture: output }, { buffer: readBuf, bytesPerRow: bpr, rowsPerImage: H }, { width: W, height: H });
   device.queue.submit([enc.finish()]);

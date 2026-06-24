@@ -568,8 +568,17 @@ export class MeteorEngine {
       size: { width: res, height: res }, format: 'rgba16float',
       usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.COPY_SRC | GPUTextureUsage.COPY_DST,
     };
-    rt.stateA = this.pool.acquire(`${rt.surface.id}:stateA`, stateDesc);
-    rt.stateB = this.pool.acquire(`${rt.surface.id}:stateB`, stateDesc);
+    // CRITICAL: only bind the ping-pong state textures ONCE (or on a resolution
+    // change). _encodeSimStep swaps rt.stateA <-> rt.stateB each sim step; if we
+    // re-`acquire` them here every frame we'd reset the pointers to the fixed
+    // pool keys and UNDO the swap — so the solver would read a stale buffer and
+    // never accumulate (the wet state appeared to "jitter between two frames" and
+    // showed nothing until rain density was cranked). Acquiring once preserves
+    // the swap, so the heightfield/wetness actually evolve over time.
+    if (!rt.stateA || rt.stateA.width !== res) {
+      rt.stateA = this.pool.acquire(`${rt.surface.id}:stateA`, stateDesc);
+      rt.stateB = this.pool.acquire(`${rt.surface.id}:stateB`, stateDesc);
+    }
     rt.deposit = this.pool.acquire(`${rt.surface.id}:deposit`, {
       size: { width: res, height: res }, format: 'rgba16float',
       usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.STORAGE_BINDING,
