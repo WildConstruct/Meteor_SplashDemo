@@ -20,11 +20,11 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: true,
     rollupOptions: {
-      // Two pages: index.html = wet-shader tuning harness (site root, mobile),
-      // app.html = the full Meteor editor. Keep both in the deploy.
+      // Two pages: index.html = the full Meteor editor/demo (site root),
+      // tune.html = the standalone wet-shader tuning sandbox. Keep both.
       input: {
         index: r('index.html'),
-        app: r('app.html'),
+        tune: r('tune.html'),
       },
     },
   },

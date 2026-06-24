@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Meteor — Wet-Shader Tuning</title>
+    <link rel="stylesheet" href="/src/client/styles/tune.css" />
+  </head>
+  <body>
+    <canvas id="gpu-canvas"></canvas>
+
+    <div id="unsupported" hidden>
+      <h2>WebGPU is not available</h2>
+      <p>This page needs a WebGPU browser (Chrome/Edge 113+, or recent Chromium / iOS 18 Safari).</p>
+    </div>
+
+    <button id="panel-toggle" aria-label="Toggle controls">≡ Tune</button>
+    <section id="panel" aria-label="Tuning controls">
+      <header>
+        <strong>Wet-shader tuning</strong>
+        <span id="fps" class="muted">—</span>
+      </header>
+      <div id="sliders"></div>
+      <div class="row">
+        <button id="play">⏸ Pause</button>
+        <button id="reset">Reset look</button>
+        <a id="editor-link" href="index.html">Main demo →</a>
+      </div>
+      <div class="row">
+        <button id="load-plate">Load plate…</button>
+        <button id="load-sky">Load sky/env…</button>
+        <input id="file-plate" type="file" accept="image/*" hidden />
+        <input id="file-sky" type="file" accept="image/*" hidden />
+      </div>
+      <p class="hint">Isolated wet-shader sandbox for dialing the look. <b>Load plate</b> = the ground photo; <b>Load sky/env</b> = the image the puddles reflect. The full demo/editor is at <code>index.html</code>.</p>
+    </section>
+
+    <!-- Standalone wet-shader tuning sandbox. The full Meteor editor/demo is the
+         site root (index.html); this page reuses the same engine in isolation. -->
+    <script type="module" src="/src/client/tune.js"></script>
+  </body>
+</html>

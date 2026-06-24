@@ -1,13 +1,39 @@
 {
   "schemaVersion": 1,
   "projectId": "hard-surface-topdown",
-  "sourcePlate": { "assetId": "demo/hard-surface-topdown.png", "width": 1672, "height": 941 },
+  "sourcePlate": {
+    "assetId": "demo/hard-surface-topdown.png",
+    "width": 1672,
+    "height": 941
+  },
   "durationFrames": 240,
   "frameRate": 30,
   "globalSeed": 4071,
   "palettes": [
-    { "id": "metal-mix", "name": "Metal Mix", "entries": [ { "responseId": "metal-tick", "weight": 0.6 }, { "responseId": "metal-bounce", "weight": 0.4 } ] },
-    { "id": "puddle", "name": "Puddle", "entries": [ { "responseId": "puddle-crown", "weight": 1.0 } ] }
+    {
+      "id": "metal-mix",
+      "name": "Metal Mix",
+      "entries": [
+        {
+          "responseId": "metal-tick",
+          "weight": 0.6
+        },
+        {
+          "responseId": "metal-bounce",
+          "weight": 0.4
+        }
+      ]
+    },
+    {
+      "id": "puddle",
+      "name": "Puddle",
+      "entries": [
+        {
+          "responseId": "puddle-crown",
+          "weight": 1
+        }
+      ]
+    }
   ],
   "surfaces": [
     {
@@ -15,35 +41,113 @@
       "name": "Asphalt (smooth)",
       "enabled": true,
       "renderOrder": 0,
-      "simulationResolution": 256,
+      "simulationResolution": 384,
       "normalDirection": -1.5708,
       "normalScale": 0.03,
       "materialResponseId": "puddle-crown",
       "maskPath": [
-        { "u": 0.05, "v": 0.16 }, { "u": 0.47, "v": 0.16 },
-        { "u": 0.47, "v": 0.95 }, { "u": 0.05, "v": 0.95 }
+        {
+          "u": 0.05,
+          "v": 0.16
+        },
+        {
+          "u": 0.47,
+          "v": 0.16
+        },
+        {
+          "u": 0.47,
+          "v": 0.95
+        },
+        {
+          "u": 0.05,
+          "v": 0.95
+        }
       ],
       "calibrationQuad": [
-        { "x": 0.05, "y": 0.16 }, { "x": 0.47, "y": 0.16 },
-        { "x": 0.47, "y": 0.95 }, { "x": 0.05, "y": 0.95 }
+        {
+          "x": 0.05,
+          "y": 0.16
+        },
+        {
+          "x": 0.47,
+          "y": 0.16
+        },
+        {
+          "x": 0.47,
+          "y": 0.95
+        },
+        {
+          "x": 0.05,
+          "y": 0.95
+        }
       ],
-      "flow": { "baseFlow": { "x": 0.0, "y": 0.3 }, "bias": { "x": 0.0, "y": 0.0 } },
+      "flow": {
+        "baseFlow": {
+          "x": 0,
+          "y": 0.3
+        },
+        "bias": {
+          "x": 0,
+          "y": 0
+        }
+      },
       "reliefLayers": [
         {
-          "id": "car-edge-left", "surfaceId": "asphalt", "mode": "raised",
-          "height": 1.0, "softness": 0.05, "flowDeflection": 1.0, "boundaryWrap": 1.0,
+          "id": "car-edge-left",
+          "surfaceId": "asphalt",
+          "mode": "raised",
+          "height": 1,
+          "softness": 0.05,
+          "flowDeflection": 1,
+          "boundaryWrap": 1,
           "enabled": false,
-          "shape": { "type": "ellipse", "center": { "u": 0.95, "v": 0.5 }, "radius": { "u": 0.16, "v": 0.42 }, "rotation": 0.0 }
+          "shape": {
+            "type": "ellipse",
+            "center": {
+              "u": 0.95,
+              "v": 0.5
+            },
+            "radius": {
+              "u": 0.16,
+              "v": 0.42
+            },
+            "rotation": 0
+          }
         }
       ],
       "rainFields": [
         {
-          "id": "asphalt-rain", "name": "Asphalt Rain", "enabled": true, "surfaceId": "asphalt",
-          "placementSeed": 11, "responseSeed": 23,
-          "centerUV": { "u": 0.5, "v": 0.5 }, "scaleUV": { "x": 0.4, "y": 0.4 }, "rotation": 0.0,
-          "density": 0.4, "falloff": 0.2, "ratePerSecond": 40, "startFrame": 0, "endFrame": 240,
-          "dropSizeRange": [0.5, 1.4], "velocityRange": [0.6, 1.4], "incomingDirection": -1.5708,
-          "paletteId": "puddle", "poolSize": 256
+          "id": "asphalt-rain",
+          "name": "Asphalt Rain",
+          "enabled": true,
+          "surfaceId": "asphalt",
+          "placementSeed": 11,
+          "responseSeed": 23,
+          "centerUV": {
+            "u": 0.5,
+            "v": 0.5
+          },
+          "scaleUV": {
+            "x": 0.85,
+            "y": 0.85
+          },
+          "rotation": 0,
+          "density": 0.6,
+          "falloff": 0.2,
+          "ratePerSecond": 40,
+          "startFrame": 0,
+          "endFrame": 240,
+          "dropSizeRange": [
+            0.25,
+            0.7
+          ],
+          "velocityRange": [
+            0.6,
+            1.4
+          ],
+          "incomingDirection": -1.5708,
+          "paletteId": "puddle",
+          "poolSize": 700
         }
       ]
     },
@@ -52,40 +156,122 @@
       "name": "Concrete (rough)",
       "enabled": true,
       "renderOrder": 1,
-      "simulationResolution": 256,
+      "simulationResolution": 384,
       "normalDirection": -1.5708,
       "normalScale": 0.03,
       "materialResponseId": "metal-tick",
       "maskPath": [
-        { "u": 0.53, "v": 0.16 }, { "u": 0.95, "v": 0.16 },
-        { "u": 0.95, "v": 0.95 }, { "u": 0.53, "v": 0.95 }
+        {
+          "u": 0.53,
+          "v": 0.16
+        },
+        {
+          "u": 0.95,
+          "v": 0.16
+        },
+        {
+          "u": 0.95,
+          "v": 0.95
+        },
+        {
+          "u": 0.53,
+          "v": 0.95
+        }
       ],
       "calibrationQuad": [
-        { "x": 0.53, "y": 0.16 }, { "x": 0.95, "y": 0.16 },
-        { "x": 0.95, "y": 0.95 }, { "x": 0.53, "y": 0.95 }
+        {
+          "x": 0.53,
+          "y": 0.16
+        },
+        {
+          "x": 0.95,
+          "y": 0.16
+        },
+        {
+          "x": 0.95,
+          "y": 0.95
+        },
+        {
+          "x": 0.53,
+          "y": 0.95
+        }
       ],
-      "flow": { "baseFlow": { "x": 0.0, "y": 0.3 }, "bias": { "x": 0.0, "y": 0.0 } },
+      "flow": {
+        "baseFlow": {
+          "x": 0,
+          "y": 0.3
+        },
+        "bias": {
+          "x": 0,
+          "y": 0
+        }
+      },
       "reliefLayers": [
         {
-          "id": "car-edge-right", "surfaceId": "concrete", "mode": "raised",
-          "height": 1.0, "softness": 0.05, "flowDeflection": 1.0, "boundaryWrap": 1.0,
+          "id": "car-edge-right",
+          "surfaceId": "concrete",
+          "mode": "raised",
+          "height": 1,
+          "softness": 0.05,
+          "flowDeflection": 1,
+          "boundaryWrap": 1,
           "enabled": false,
-          "shape": { "type": "ellipse", "center": { "u": 0.05, "v": 0.5 }, "radius": { "u": 0.16, "v": 0.42 }, "rotation": 0.0 }
+          "shape": {
+            "type": "ellipse",
+            "center": {
+              "u": 0.05,
+              "v": 0.5
+            },
+            "radius": {
+              "u": 0.16,
+              "v": 0.42
+            },
+            "rotation": 0
+          }
         }
       ],
       "rainFields": [
         {
-          "id": "concrete-rain", "name": "Concrete Rain", "enabled": true, "surfaceId": "concrete",
-          "placementSeed": 41, "responseSeed": 57,
-          "centerUV": { "u": 0.5, "v": 0.5 }, "scaleUV": { "x": 0.4, "y": 0.4 }, "rotation": 0.0,
-          "density": 0.4, "falloff": 0.2, "ratePerSecond": 40, "startFrame": 0, "endFrame": 240,
-          "dropSizeRange": [0.4, 1.2], "velocityRange": [0.6, 1.4], "incomingDirection": -1.5708,
-          "paletteId": "metal-mix", "poolSize": 256
+          "id": "concrete-rain",
+          "name": "Concrete Rain",
+          "enabled": true,
+          "surfaceId": "concrete",
+          "placementSeed": 41,
+          "responseSeed": 57,
+          "centerUV": {
+            "u": 0.5,
+            "v": 0.5
+          },
+          "scaleUV": {
+            "x": 0.85,
+            "y": 0.85
+          },
+          "rotation": 0,
+          "density": 0.6,
+          "falloff": 0.2,
+          "ratePerSecond": 40,
+          "startFrame": 0,
+          "endFrame": 240,
+          "dropSizeRange": [
+            0.25,
+            0.7
+          ],
+          "velocityRange": [
+            0.6,
+            1.4
+          ],
+          "incomingDirection": -1.5708,
+          "paletteId": "metal-mix",
+          "poolSize": 700
         }
       ]
     }
   ],
   "heroEvents": [],
   "selectedIds": [],
-  "viewportState": { "zoom": 1, "panX": 0, "panY": 0 }
+  "viewportState": {
+    "zoom": 1,
+    "panX": 0,
+    "panY": 0
+  }
 }
