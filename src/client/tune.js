@@ -10,7 +10,11 @@ import { loadMicroNormal, loadImageBitmap } from './BrowserAssetLoader.js';
 
 const MICRO_URL = `${import.meta.env.BASE_URL}assets/normals/wet-micro-normal.png`;
 const FRAME_RATE = 30;
-const DURATION = 600;
+// Long loop so the rain stays continuous for minutes before it wraps. The field
+// spreads poolSize*density impacts across this span (it is pool-based, not
+// rate-based), so a big pool over a long span = steady dense rain that doesn't
+// "run out".
+const DURATION = 1800;
 
 const dom = {
   canvas: document.getElementById('gpu-canvas'),
@@ -44,7 +48,7 @@ const CONTROLS = [
   { id: 'splashHeight', label: 'Crown height', min: 0, max: 6, step: 0.01, def: 0.8 },
   { id: 'dropletScale', label: 'Droplet scale', min: 0, max: 6, step: 0.01, def: 1.6 },
   { id: 'spread', label: 'Spray spread', min: 0, max: 4, step: 0.01, def: 1.4 },
-  { id: 'density', label: 'Rain density', min: 0, max: 1, step: 0.01, def: 0.4 },
+  { id: 'density', label: 'Rain density', min: 0, max: 1, step: 0.01, def: 0.5 },
 ];
 
 const overrides = {};
@@ -110,10 +114,12 @@ function groundSurface(id, name, { farL, farR, nearL, nearR }, seed) {
       id: `${id}-rain`, name: `${name} rain`, enabled: true, surfaceId: id,
       placementSeed: seed, responseSeed: seed + 7,
       centerUV: { u: 0.5, v: 0.5 }, scaleUV: { x: 0.48, y: 0.48 }, rotation: 0,
-      density: overrides.density, falloff: 0.25, ratePerSecond: 24,
+      density: overrides.density, falloff: 0.2, ratePerSecond: 40,
       startFrame: 0, endFrame: DURATION,
-      dropSizeRange: [0.4, 1.2], velocityRange: [0.6, 1.4], incomingDirection: -1.5708,
-      paletteId: 'rain', poolSize: 256,
+      // small drops, big pool spread over the long span => dense, tiny, continuous
+      // rain impacts (the reference look) that don't run out.
+      dropSizeRange: [0.25, 0.7], velocityRange: [0.6, 1.4], incomingDirection: -1.5708,
+      paletteId: 'rain', poolSize: 3000,
     }],
   };
 }

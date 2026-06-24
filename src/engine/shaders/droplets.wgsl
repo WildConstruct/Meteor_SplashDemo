@@ -39,14 +39,18 @@ fn vs(@builtin(vertex_index) vid: u32, @builtin(instance_index) iid: u32) -> Dro
   let a2 = rand01(seed, slot, 13u);
 
   let ageFrames = frame.frameIndex - imp.birthFrame;
-  let lifeFrames = max(1.0, imp.lifetimeOv);
-  // droplet lives a fraction of the impact lifetime
-  let age = ageFrames / 30.0; // seconds at sim hz reference
-  let alive = ageFrames >= 0.0 && ageFrames <= lifeFrames;
+  let age = ageFrames / 30.0; // seconds
 
-  // short-lived ejecta beads thrown out by the splash. Emit a moderate handful
-  // per impact (scaled by spread); each flies on its own random ballistic arc.
-  let emit = a2 < clamp(0.35 + imp.spreadOv * 0.30, 0.0, 0.85);
+  let dir = a0 * 6.2831853;
+  // Ballistic hop: launch up, full gravity pulls it back down. The bead exists
+  // ONLY for the duration of its arc (birth -> landing), so it rises AND falls
+  // and then is gone — instead of drifting away forever.
+  let vVel = (0.5 + 0.6 * a1) * params.splashHeight * imp.heightOv * 1.1;
+  let tLand = max(0.05, 2.0 * vVel / GRAVITY);   // time to fall back to the surface
+  let alive = ageFrames >= 0.0 && age < tLand;
+
+  // emit a handful of the slots (scaled by spread)
+  let emit = a2 < clamp(0.30 + imp.spreadOv * 0.30, 0.0, 0.85);
 
   if (!alive || !emit || surface.enabled < 0.5) {
     out.pos = vec4<f32>(2.0, 2.0, 2.0, 1.0);
@@ -55,25 +59,25 @@ fn vs(@builtin(vertex_index) vid: u32, @builtin(instance_index) iid: u32) -> Dro
     return out;
   }
 
-  let dir = a0 * 6.2831853;
-  let speed = (0.4 + a1) * params.spread * imp.spreadOv * 0.06;
-  let lateral = vec2<f32>(cos(dir), sin(dir)) * speed;
-  let vVel = (0.6 + a1 * 0.8) * params.splashHeight * imp.heightOv;
-  let h = max(0.0, vVel * age - 0.5 * GRAVITY * age * age * 0.4);
+  // small lateral drift (ejecta don't travel far) + gravity arc lifted along the
+  // surface normal; the 6x makes the small hop read at screen scale.
+  let lateralSpeed = (0.3 + 0.5 * a1) * params.spread * imp.spreadOv * 0.012;
+  let lateral = vec2<f32>(cos(dir), sin(dir)) * lateralSpeed;
+  let h = max(0.0, vVel * age - 0.5 * GRAVITY * age * age);
 
   let imgUV0 = apply_h(surface.homographyFwd, imp.surfaceUV);
-  let center = imgUV0 + lateral * age + surface.normalDir * h;
+  let center = imgUV0 + lateral * age + surface.normalDir * h * 6.0;
 
-  // Scale is artist-controllable via params.dropletScale (the "Droplet scale"
-  // slider) so the spray can be dialed from a fine mist to fat beads.
-  let radius = 0.0026 * params.dropletScale * imp.dropSize * (0.6 + 0.4 * a1);
+  // Much smaller beads. Scale via params.dropletScale ("Droplet scale" slider).
+  let radius = 0.0012 * params.dropletScale * imp.dropSize * (0.6 + 0.4 * a1);
   let q = QUAD[vid];
   let aspect = frame.resolution.x / max(frame.resolution.y, 1.0);
   let p = center + vec2<f32>(q.x, q.y * aspect) * radius;
 
   out.pos = vec4<f32>(p.x * 2.0 - 1.0, 1.0 - p.y * 2.0, 0.0, 1.0);
   out.local = q;
-  out.alpha = (1.0 - ageFrames / lifeFrames) * imp.visualGain * params.visualGain * 0.8;
+  // brightest at launch, fades as it falls back and lands
+  out.alpha = (1.0 - age / tLand) * imp.visualGain * params.visualGain * 0.8;
   return out;
 }
 
