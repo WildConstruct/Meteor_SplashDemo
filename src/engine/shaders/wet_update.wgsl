@@ -68,15 +68,21 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
   wet = clamp(wet, 0.0, 4.0);
   water = clamp(water, 0.0, 4.0);
 
-  // --- ripple: damped wave on the height/velocity channels ---
-  // Lighter damping + faster wave so impacts send visible concentric rings
-  // outward (the signature raindrop-on-water look) instead of dying on the spot.
-  let lap = (l.b + r.b + d.b + u.b) - 4.0 * advected.b;
-  let c2 = 0.42;       // wave speed^2 (texel units)
-  let damping = 1.1;
-  var vel = advected.a + (c2 * lap - damping * advected.a) * dt;
-  vel = vel + deposit.b; // impulse
-  var hgt = advected.b + vel * dt;
+  // --- ripple: Evan Wallace heightfield wave solver (madebyevan.com/webgl-water,
+  //     ported in jeantimex/webgpu-water — MIT). On a fixed-step grid the
+  //     velocity relaxes toward the neighbour-average height, is lightly damped,
+  //     then the height integrates the velocity. This is the proven model that
+  //     produces clean, long-lived CONCENTRIC RINGS from a point impulse — the
+  //     signature raindrop-on-puddle look. Driven by our art-directed impacts
+  //     via deposit.b (rippleImpulse). Evaluated on the fixed grid (not flow-
+  //     advected) so the rings stay crisp.
+  let center = sampleState(uv);
+  let neighborAvg = (l.b + r.b + d.b + u.b) * 0.25;
+  var vel = center.a + (neighborAvg - center.b) * 2.0;
+  vel = vel * 0.975;                 // damping: rings expand then fade (vs piling
+                                     // up into chaos when nearly undamped)
+  vel = vel - deposit.b;             // raindrop dimples the surface, then rebounds
+  var hgt = center.b + vel;
   hgt = clamp(hgt, -4.0, 4.0);
 
   // --- mask boundary ---
