@@ -143,6 +143,26 @@ struct Frame {
   debugMode: f32,
 };
 
+// A water rivulet running down a surface (windshield/vertical streaming). Stored
+// in a per-surface storage buffer, advanced by rivulet_update, deposited by
+// deposit_stamp. 8 f32 = 32 bytes.
+struct Rivulet {
+  pos: vec2<f32>,    // surface UV
+  vel: vec2<f32>,    // surface-UV / sec
+  water: f32,        // remaining volume (depletes -> respawn)
+  seed: f32,         // per-rivulet random seed
+  pad0: f32,
+  pad1: f32,
+};
+
+// Per-surface drip controls (16 bytes).
+struct DripConfig {
+  amount: f32,   // 0 = off; scales deposit + respawn (how wet the streaming is)
+  speed: f32,    // how fast rivulets run down
+  width: f32,    // trail width
+  meander: f32,  // horizontal wander
+};
+
 struct Surface {
   homographyFwd: mat3x3<f32>, // surface UV -> image UV
   homographyInv: mat3x3<f32>, // image UV -> surface UV

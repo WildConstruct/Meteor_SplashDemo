@@ -10,6 +10,8 @@
 @group(0) @binding(2) var<storage, read> impacts: array<Impact>;
 @group(0) @binding(3) var depositTex: texture_storage_2d<rgba16float, write>;
 @group(0) @binding(4) var<uniform> surface: Surface;
+@group(0) @binding(5) var<storage, read> rivulets: array<Rivulet>;
+@group(0) @binding(6) var<uniform> drip: DripConfig;
 
 @compute @workgroup_size(8, 8, 1)
 fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
@@ -51,6 +53,22 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let rippleRadius = 0.0016 + 0.0012 * imp.dropSize;
     let rippleSpatial = exp(-(d * d) / (rippleRadius * rippleRadius));
     ripple = ripple + imp.rippleImpulse * rippleSpatial * exp(-age * 1.5) * gate;
+  }
+
+  // --- rivulet trails: gather wet/water from the streaming particles. As each
+  // rivulet runs down, it deposits here every step; the wet channel's persistence
+  // turns that into a continuous trail behind the bright head. ---
+  if (drip.amount > 0.001) {
+    let rc = arrayLength(&rivulets);
+    let rw = max(drip.width, 0.002);
+    for (var ri = 0u; ri < rc; ri = ri + 1u) {
+      let rv = rivulets[ri];
+      if (rv.water <= 0.0) { continue; }
+      let dd = (uv - rv.pos) * vec2<f32>(surface.aspect, 1.0);
+      let sp = exp(-dot(dd, dd) / (rw * rw));
+      wet = wet + sp * drip.amount * 0.6 * rv.water;
+      water = water + sp * drip.amount * 0.35 * rv.water;
+    }
   }
 
   textureStore(depositTex, vec2<i32>(i32(gid.x), i32(gid.y)),

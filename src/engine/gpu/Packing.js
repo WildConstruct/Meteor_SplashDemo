@@ -100,3 +100,36 @@ export function packFlowConfig({ baseFlow, bias }) {
   a[3] = bias?.y ?? 0;
   return a;
 }
+
+/** DripConfig: amount, speed, width, meander = 16 bytes. */
+export function packDripConfig(drip) {
+  const a = new Float32Array(4);
+  a[0] = drip?.amount ?? 0;
+  a[1] = drip?.speed ?? 0.25;
+  a[2] = drip?.width ?? 0.01;
+  a[3] = drip?.meander ?? 0.5;
+  return a;
+}
+
+export const RIVULET_COUNT = 128;
+export const RIVULET_STRIDE_BYTES = 32; // 8 f32
+
+/**
+ * Seeded initial rivulet buffer: rivulets spread across the surface, biased
+ * toward the top (they run down). Deterministic from the project seed.
+ */
+export function packInitialRivulets(seed = 1) {
+  const a = new Float32Array(RIVULET_COUNT * 8);
+  let s = (seed * 2654435761) >>> 0;
+  const rand = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
+  for (let i = 0; i < RIVULET_COUNT; i++) {
+    const o = i * 8;
+    a[o] = rand();              // pos.u
+    a[o + 1] = rand() * 0.4;    // pos.v (start near the top)
+    a[o + 2] = 0;               // vel.u
+    a[o + 3] = 0;               // vel.v
+    a[o + 4] = rand();          // water (staggered so they don't all respawn together)
+    a[o + 5] = rand() * 1000;   // seed
+  }
+  return a;
+}

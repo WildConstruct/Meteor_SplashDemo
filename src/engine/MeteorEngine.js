@@ -11,6 +11,7 @@
 import { TexturePool } from './gpu/TexturePool.js';
 import {
   packFrame, packSurface, packImpacts, packCompositeConfig, packFlowConfig,
+  packDripConfig, packInitialRivulets, RIVULET_COUNT, RIVULET_STRIDE_BYTES,
 } from './gpu/Packing.js';
 import { ParameterState } from './ParameterState.js';
 import { buildSurfaceTransforms, normalProjection, surfaceWorldNormal, surfaceAspect } from './geometry/SurfaceTransforms.js';
@@ -31,7 +32,7 @@ import { surfaceTopologyHash } from './ProjectSchema.js';
 
 const SHADER_FILES = [
   'plate_linearize', 'deposit_stamp', 'wet_update', 'relief_gradient',
-  'flow_build', 'wet_composite', 'splash', 'droplets',
+  'flow_build', 'wet_composite', 'splash', 'droplets', 'rivulet_update',
 ];
 
 export class MeteorEngine {
@@ -187,6 +188,10 @@ export class MeteorEngine {
     this.pipelines.deposit = dev.createComputePipeline({
       layout: 'auto',
       compute: { module: this.modules.deposit_stamp, entryPoint: 'main' },
+    });
+    this.pipelines.rivuletUpdate = dev.createComputePipeline({
+      layout: 'auto',
+      compute: { module: this.modules.rivulet_update, entryPoint: 'main' },
     });
     this.pipelines.wetUpdate = dev.createComputePipeline({
       layout: dev.createPipelineLayout({ bindGroupLayouts: [wetUpdateBGL] }),
@@ -520,6 +525,14 @@ export class MeteorEngine {
       }));
 
       const enc = dev.createCommandEncoder();
+      // rivulets (streaming) — only when this surface has drips enabled
+      if ((rt.surface.drip?.amount ?? 0) > 0.001) {
+        const pass = enc.beginComputePass();
+        pass.setPipeline(this.pipelines.rivuletUpdate);
+        pass.setBindGroup(0, this._rivuletBindGroup(rt));
+        pass.dispatchWorkgroups(Math.ceil(RIVULET_COUNT / 64));
+        pass.end();
+      }
       // deposit
       {
         const pass = enc.beginComputePass();
@@ -721,6 +734,11 @@ export class MeteorEngine {
     // _uploadStatic runs: _uploadStatic -> _buildFlow binds rt.flowUniform.
     rt.surfaceUniform ??= this.device.createBuffer({ size: 128, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
     rt.flowUniform ??= this.device.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    rt.dripUniform ??= this.device.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    rt.rivuletBuffer ??= this.device.createBuffer({
+      size: RIVULET_COUNT * RIVULET_STRIDE_BYTES,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    });
     this._writeSurfaceUniform(rt);
 
     if (!rt.staticUploaded) {
@@ -737,6 +755,12 @@ export class MeteorEngine {
       worldNormal: surfaceWorldNormal(rt.surface), aspect: surfaceAspect(rt.surface),
     }));
     this.queue.writeBuffer(rt.flowUniform, 0, packFlowConfig(rt.flowConfig));
+    this.queue.writeBuffer(rt.dripUniform, 0, packDripConfig(rt.surface.drip));
+    // (re)seed the rivulet positions once per compile so streaming is deterministic
+    if (!rt.rivuletsSeeded) {
+      this.queue.writeBuffer(rt.rivuletBuffer, 0, packInitialRivulets((this.project.globalSeed ?? 1) + 1));
+      rt.rivuletsSeeded = true;
+    }
   }
 
   _uploadStatic(rt) {
@@ -864,6 +888,21 @@ export class MeteorEngine {
         { binding: 2, resource: { buffer: rt.impactBuffer } },
         { binding: 3, resource: rt.deposit.createView() },
         { binding: 4, resource: { buffer: rt.surfaceUniform } },
+        { binding: 5, resource: { buffer: rt.rivuletBuffer } },
+        { binding: 6, resource: { buffer: rt.dripUniform } },
+      ],
+    });
+  }
+
+  _rivuletBindGroup(rt) {
+    return this.device.createBindGroup({
+      layout: this.pipelines.rivuletUpdate.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: this.uniformBuffers.frame } },
+        { binding: 1, resource: { buffer: rt.rivuletBuffer } },
+        { binding: 2, resource: rt.flow.createView() },
+        { binding: 3, resource: { buffer: rt.dripUniform } },
+        { binding: 4, resource: this.samplers.linear },
       ],
     });
   }
