@@ -23,3 +23,25 @@ export function renderSurface(group, vp, surface, selected) {
     'data-surface': surface.id,
   }));
 }
+
+// Cutout polygons (carve the wet plane around objects, e.g. the car). Shown only
+// while the surface is selected: a red dashed shape + a draggable handle per
+// vertex. Authored in image UV, same space as the mask path.
+export function renderCutouts(group, vp, surface, selected) {
+  if (!selected) return;
+  (surface.cutouts ?? []).forEach((cut, ci) => {
+    const verts = (cut.points ?? cut);
+    const screen = verts.map((p) => vp.uvToScreen(p.u ?? p[0], p.v ?? p[1]));
+    if (screen.length < 3) return;
+    group.appendChild(svgEl('polygon', {
+      points: screen.map((s) => `${s.x},${s.y}`).join(' '),
+      class: 'cutout-shape',
+    }));
+    screen.forEach((s, vi) => {
+      group.appendChild(svgEl('circle', {
+        cx: s.x, cy: s.y, r: 6, class: 'handle cutout-handle',
+        'data-handle': 'cutout', 'data-surface': surface.id, 'data-cutout': ci, 'data-vertex': vi,
+      }));
+    });
+  });
+}

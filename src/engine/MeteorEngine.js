@@ -325,17 +325,23 @@ export class MeteorEngine {
       // image->surface before rasterizing, otherwise the mask lands in a corner
       // of the texture and the surface centre reads mask=0 (wet effect missing
       // across most of the surface).
-      const maskPoly = (surface.maskPath ?? []).map((p) => {
+      const toSurface = (p) => {
         const [su, sv] = transforms.imageToSurface(p.u ?? p.x, p.v ?? p.y);
         return { u: su, v: sv };
-      });
+      };
+      const maskPoly = (surface.maskPath ?? []).map(toSurface);
+      // Cutouts (carve around objects, e.g. the car) are authored in IMAGE UV
+      // like the mask path; transform them the same way before subtracting.
+      const cutouts = (surface.cutouts ?? [])
+        .map((c) => (c.points ?? c).map(toSurface))
+        .filter((c) => c.length >= 3);
 
       this.surfaceRuntime.set(surface.id, {
         surface,
         transforms,
         res,
         events,
-        maskData: rasterizeMask(maskPoly, res, res),
+        maskData: rasterizeMask(maskPoly, res, res, { feather: surface.maskFeather ?? 0.12, cutouts }),
         reliefData: rasterizeRelief(surface.reliefLayers ?? [], res, res, this.params.toObject()),
         flowConfig: surface.flow ?? { baseFlow: { x: 0, y: 0.3 }, bias: { x: 0, y: 0 } },
         simInitialized: false,

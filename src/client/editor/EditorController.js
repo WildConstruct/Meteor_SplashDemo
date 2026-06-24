@@ -4,7 +4,7 @@
 // WebGL is used for overlays; the VFX result stays entirely WebGPU-generated.
 
 import { ViewportController, svgEl } from './ViewportController.js';
-import { renderSurface } from './SurfaceTool.js';
+import { renderSurface, renderCutouts } from './SurfaceTool.js';
 import { renderQuad } from './PerspectiveTool.js';
 import { renderNormal, normalFromDisc } from './NormalTool.js';
 import { renderField, renderHeroDots } from './RainFieldTool.js';
@@ -61,6 +61,7 @@ export class EditorController {
       // sluggish. The calibration quad below is the visible editable outline.
       renderSurface(g, this.vp, surface, surfSelected);
       renderQuad(g, this.vp, surface, surfSelected);
+      renderCutouts(g, this.vp, surface, surfSelected);
       renderNormal(g, this.vp, surface, surfSelected);
       for (const field of surface.rainFields ?? []) {
         renderField(g, this.vp, surface, field, sel.type === 'field' && sel.id === field.id, ctx);
@@ -127,6 +128,14 @@ export class EditorController {
       this.drag = { type: 'normal-disc', surfaceId: t.dataset.surface };
       return;
     }
+    if (handle === 'cutout') {
+      this.state.select('surface', t.dataset.surface);
+      this.drag = {
+        type: 'cutout', surfaceId: t.dataset.surface,
+        ci: Number(t.dataset.cutout), vi: Number(t.dataset.vertex),
+      };
+      return;
+    }
     if (handle === 'field-move') {
       this.state.select('field', t.dataset.field);
       this.drag = { type: 'field-move', fieldId: t.dataset.field };
@@ -154,6 +163,16 @@ export class EditorController {
         const s = this.state.surface(this.drag.surfaceId);
         s.worldNormal = normalFromDisc(this.vp, s, screen);
         this.state.emit('surface');
+        break;
+      }
+      case 'cutout': {
+        const s = this.state.surface(this.drag.surfaceId);
+        const cut = s.cutouts?.[this.drag.ci];
+        const verts = cut?.points ?? cut;
+        if (verts) {
+          verts[this.drag.vi] = { u: uv.u, v: uv.v };
+          this.state.emit('surface');
+        }
         break;
       }
       case 'field-move': {
@@ -231,9 +250,54 @@ export class EditorController {
       ins.appendChild(this._title(`Surface: ${s.name || s.id}`));
       const note = document.createElement('div');
       note.className = 'muted';
-      note.textContent = 'Drag A·B·C·D to calibrate · drag N to aim splash';
+      note.textContent = 'Drag A·B·C·D to calibrate · drag the wheel to aim · drag a cutout to carve';
       ins.appendChild(note);
+      ins.appendChild(this._slider('Edge feather', s.maskFeather ?? 0.12, 0, 1, 0.01, (v) => {
+        s.maskFeather = v;
+        this.state.emit('surface');
+      }));
+      const row = document.createElement('div');
+      row.className = 'inspector-actions';
+      const add = document.createElement('button');
+      add.textContent = '✂ Add cutout';
+      add.addEventListener('click', () => this._addCutout(s));
+      row.appendChild(add);
+      if ((s.cutouts ?? []).length) {
+        const clear = document.createElement('button');
+        clear.textContent = `Clear (${s.cutouts.length})`;
+        clear.addEventListener('click', () => {
+          s.cutouts = [];
+          this.state.emit('surface');
+          this.invalidateInspector();
+          this.render();
+        });
+        row.appendChild(clear);
+      }
+      ins.appendChild(row);
     }
+  }
+
+  /** Drop a draggable quad cutout in the middle of the surface's mask bounds. */
+  _addCutout(surface) {
+    const path = surface.maskPath ?? [];
+    if (path.length < 3) { this.notify?.warn('This surface has no mask to carve.'); return; }
+    let minU = 1, minV = 1, maxU = 0, maxV = 0;
+    for (const p of path) {
+      const u = p.u ?? p.x, v = p.v ?? p.y;
+      minU = Math.min(minU, u); maxU = Math.max(maxU, u);
+      minV = Math.min(minV, v); maxV = Math.max(maxV, v);
+    }
+    const cu = (minU + maxU) / 2, cv = (minV + maxV) / 2;
+    const hw = (maxU - minU) * 0.18, hh = (maxV - minV) * 0.18;
+    const quad = [
+      { u: cu - hw, v: cv - hh }, { u: cu + hw, v: cv - hh },
+      { u: cu + hw, v: cv + hh }, { u: cu - hw, v: cv + hh },
+    ];
+    surface.cutouts = surface.cutouts ?? [];
+    surface.cutouts.push({ points: quad });
+    this.state.emit('surface');
+    this.invalidateInspector();
+    this.render();
   }
 
   _title(text) {

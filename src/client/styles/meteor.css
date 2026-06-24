@@ -76,8 +76,11 @@ body {
 .btn-row button, .inspector button {
   background: var(--panel); color: var(--text); border: 1px solid var(--line);
   border-radius: 6px; padding: 5px 9px; cursor: pointer;
+  transition-property: scale, border-color, background; transition-duration: .12s;
 }
-.btn-row button:hover { border-color: var(--accent); }
+.btn-row button:hover, .inspector button:hover { border-color: var(--accent); }
+.btn-row button:active, .inspector button:active { scale: .96; }
+.inspector-actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
 .perf { margin-top: 8px; color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
 
 .chip-list { display: flex; flex-direction: column; gap: 4px; }
@@ -132,6 +135,9 @@ body {
 .normal-line { stroke: #7affc0; stroke-width: 2; }
 /* invisible click-to-select hit region over a surface */
 .surface-hit { fill: transparent; cursor: pointer; }
+/* cutout polygons (carve the wet plane around objects) */
+.cutout-shape { fill: rgba(255,90,90,.10); stroke: #ff6b6b; stroke-width: 1.5; stroke-dasharray: 5 4; }
+.cutout-handle { fill: #ff6b6b; }
 /* 3D world-normal wheel gizmo */
 .gizmo-hit { fill: transparent; cursor: grab; }
 .gizmo-wheel { fill: none; stroke: rgba(255,255,255,.55); stroke-width: 1.5; }
