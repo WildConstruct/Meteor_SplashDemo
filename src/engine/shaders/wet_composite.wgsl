@@ -87,11 +87,12 @@ fn fs(in: VSOut) -> @location(0) vec4<f32> {
     return vec4<f32>(encodeOut(base), 1.0);
   }
 
-  // It is raining across the field, so the masked ground reads WET everywhere —
-  // not just where individual drops landed. Take a base wetness inside the mask
-  // and let accumulated wetness push it to fully saturated. This is the single
-  // biggest difference from a "dry surface with dots": the whole surface is wet.
-  let wetAmt = clamp(max(wet, mask * 0.92), 0.0, 1.0);
+  // It is raining, so the masked ground reads wet — but how MUCH standing water
+  // sits there at rest is the "Water Level" control. A low level leaves the
+  // ground merely damp so individual drops land on near-dry ground and BUILD
+  // visible wetness/puddles (the accumulating `wet` channel); a high level reads
+  // as a full mirror pool. Accumulated wetness always pushes toward saturated.
+  let wetAmt = clamp(max(wet, mask * params.waterLevel), 0.0, 1.0);
   let pool = clamp(water, 0.0, 1.0);
 
   // ---- surface normal from the heightfield ripple gradient (+ micro breakup) ----

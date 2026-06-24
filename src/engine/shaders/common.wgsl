@@ -48,7 +48,7 @@ fn luminance(c: vec3<f32>) -> f32 {
 
 // ---- shared uniform structs ----
 // Packed scalar parameters. Field ORDER must match ParameterState.WGSL_PARAM_IDS
-// (see docs/shader-bindings.md). 25 scalars.
+// (see docs/shader-bindings.md). 27 scalars.
 struct Params {
   debugMode: f32,
   visualGain: f32,
@@ -76,6 +76,7 @@ struct Params {
   distortion: f32,
   edgeBead: f32,
   dropletScale: f32,
+  waterLevel: f32,   // base standing-water/wetness floor inside the mask (0 dry .. 1 full pool)
 };
 
 struct Frame {

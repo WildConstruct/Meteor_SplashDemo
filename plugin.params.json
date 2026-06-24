@@ -427,6 +427,19 @@
       "max": 6,
       "step": 0.01,
       "wgsl": "dropletScale"
+    },
+    {
+      "uuid": "c8d2f3b5-a044-4e62-9f71-2b3c4d5e6f70",
+      "aeDiskId": 1031,
+      "id": "waterLevel",
+      "name": "Water Level",
+      "section": "Look",
+      "type": "float",
+      "default": 0.35,
+      "min": 0,
+      "max": 1,
+      "step": 0.01,
+      "wgsl": "waterLevel"
     }
   ]
 }

@@ -424,7 +424,7 @@ export class MeteorEngine {
   }
 
   _paramsPadded() {
-    const packed = this.params.packUniform(); // 25 f32
+    const packed = this.params.packUniform(); // 27 f32
     const buf = new Float32Array(28); // pad to struct size 112 bytes
     buf.set(packed);
     return buf;

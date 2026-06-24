@@ -115,7 +115,18 @@ export class EditorController {
       return;
     }
     if (handle === 'surface-select') {
-      this.state.select('surface', t.dataset.surface); // click the surface to select; no drag
+      // Click selects; drag translates the WHOLE plane (all four corners + mask +
+      // cutouts) by the pointer delta. A click with no movement leaves the quad
+      // untouched, so it just selects.
+      const s = this.state.surface(t.dataset.surface);
+      this.state.select('surface', t.dataset.surface);
+      this.drag = {
+        type: 'quad-move', surfaceId: t.dataset.surface,
+        start: this.vp.eventToUv(e),
+        origQuad: s.calibrationQuad.map((c) => ({ x: c.x, y: c.y })),
+        origMask: (s.maskPath ?? []).map((p) => ({ u: p.u ?? p.x, v: p.v ?? p.y })),
+        origCuts: (s.cutouts ?? []).map((c) => (c.points ?? c).map((p) => ({ u: p.u ?? p.x, v: p.v ?? p.y }))),
+      };
       return;
     }
     if (handle === 'quad') {
@@ -156,6 +167,20 @@ export class EditorController {
       case 'quad': {
         const s = this.state.surface(this.drag.surfaceId);
         s.calibrationQuad[this.drag.corner] = { x: uv.u, y: uv.v };
+        this.state.emit('surface');
+        break;
+      }
+      case 'quad-move': {
+        const s = this.state.surface(this.drag.surfaceId);
+        const du = uv.u - this.drag.start.u;
+        const dv = uv.v - this.drag.start.v;
+        s.calibrationQuad = this.drag.origQuad.map((c) => ({ x: c.x + du, y: c.y + dv }));
+        if (this.drag.origMask.length) {
+          s.maskPath = this.drag.origMask.map((p) => ({ u: p.u + du, v: p.v + dv }));
+        }
+        if (this.drag.origCuts.length) {
+          s.cutouts = this.drag.origCuts.map((pts) => ({ points: pts.map((p) => ({ u: p.u + du, v: p.v + dv })) }));
+        }
         this.state.emit('surface');
         break;
       }
@@ -250,7 +275,7 @@ export class EditorController {
       ins.appendChild(this._title(`Surface: ${s.name || s.id}`));
       const note = document.createElement('div');
       note.className = 'muted';
-      note.textContent = 'Drag A·B·C·D to calibrate · drag the wheel to aim · drag a cutout to carve';
+      note.textContent = 'Drag the plane to move it · A·B·C·D to calibrate · the wheel to aim · a cutout to carve';
       ins.appendChild(note);
       ins.appendChild(this._slider('Edge feather', s.maskFeather ?? 0.12, 0, 1, 0.01, (v) => {
         s.maskFeather = v;
