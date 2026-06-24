@@ -136,8 +136,16 @@ fn fs(in: VSOut) -> @location(0) vec4<f32> {
   // the sky shimmers in the waves. Sample equirect: u = azimuth, v: 0 zenith ->
   // 1 below the horizon.
   let grazing = clamp(1.0 - surfUV.y, 0.0, 1.0);
-  let upness = mix(0.95, 0.22, grazing);
-  let refl = normalize(vec3<f32>(n.x * 2.2, upness, n.y * 2.2 + grazing * 0.6));
+  // Base the reflection on the surface's WORLD normal (set by the gizmo): its
+  // z (toward camera) reads as "up toward sky", so a more vertical plane mirrors
+  // more overhead sky; tilting it re-aims the reflection. Grazing lowers the
+  // elevation toward the horizon and the ripple normal shimmers it.
+  let wn = surface.worldNormal;
+  let refl = normalize(vec3<f32>(
+    wn.x * 1.5 + n.x * 2.2,
+    mix(max(wn.z, 0.05), 0.2, grazing),
+    -wn.y * 1.5 + n.y * 2.2 + grazing * 0.5,
+  ));
   let lon = atan2(refl.x, refl.z) / 6.2831853 + 0.5;
   let envUV = vec2<f32>(fract(lon), clamp(0.5 - 0.5 * refl.y, 0.0, 1.0));
   let envCol = textureSampleLevel(envTex, samp, envUV, 0.0).rgb;

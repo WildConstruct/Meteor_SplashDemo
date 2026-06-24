@@ -32,17 +32,24 @@ export function packFrame({ width, height, pixelAspect, timeSeconds, frameIndex,
 }
 
 /**
- * Surface uniform: 2x mat3 (48 each) + vec2 normalDir + enabled + simResolution.
- * Total 112 bytes (28 f32).
+ * Surface uniform: 2x mat3 (48 each) + vec2 normalDir + enabled + simResolution +
+ * vec3 worldNormal. Total 128 bytes (32 f32); worldNormal is 16-byte aligned at
+ * offset 112 (f32 index 28). worldNormal is the surface's 3D world-space normal
+ * (x right, y up, z toward camera) — it aims the sky reflection and the splash
+ * lift. normalDir is its screen-space splash-lift projection.
  */
-export function packSurface({ forward, inverse, normalDir, enabled, simResolution }) {
-  const a = new Float32Array(28);
+export function packSurface({ forward, inverse, normalDir, enabled, simResolution, worldNormal }) {
+  const a = new Float32Array(32);
   packMat3(forward, a, 0); // 0..11
   packMat3(inverse, a, 12); // 12..23
   a[24] = normalDir?.dx ?? 0;
   a[25] = normalDir?.dy ?? 0;
   a[26] = enabled ? 1 : 0;
   a[27] = simResolution ?? 256;
+  a[28] = worldNormal?.x ?? 0;
+  a[29] = worldNormal?.y ?? 0;
+  a[30] = worldNormal?.z ?? 1;
+  // a[31] = pad
   return a;
 }
 

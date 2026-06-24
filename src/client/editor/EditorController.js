@@ -5,7 +5,7 @@
 
 import { ViewportController, svgEl } from './ViewportController.js';
 import { renderQuad } from './PerspectiveTool.js';
-import { renderNormal, normalFromDrag } from './NormalTool.js';
+import { renderNormal, normalAxisFromDrag } from './NormalTool.js';
 import { renderField, renderHeroDots } from './RainFieldTool.js';
 import { renderRelief } from './ReliefTool.js';
 import { pickImpact } from './ImpactPicking.js';
@@ -117,8 +117,9 @@ export class EditorController {
       this.drag = { type: 'quad', surfaceId: t.dataset.surface, corner: Number(t.dataset.corner) };
       return;
     }
-    if (handle === 'normal') {
-      this.drag = { type: 'normal', surfaceId: t.dataset.surface };
+    if (handle === 'normal-x' || handle === 'normal-y' || handle === 'normal-z') {
+      this.state.select('surface', t.dataset.surface);
+      this.drag = { type: 'normal-axis', surfaceId: t.dataset.surface, axis: handle.slice(-1) };
       return;
     }
     if (handle === 'field-move') {
@@ -144,9 +145,9 @@ export class EditorController {
         this.state.emit('surface');
         break;
       }
-      case 'normal': {
+      case 'normal-axis': {
         const s = this.state.surface(this.drag.surfaceId);
-        Object.assign(s, normalFromDrag(this.vp, s, screen));
+        s.worldNormal = normalAxisFromDrag(this.vp, s, this.drag.axis, screen);
         this.state.emit('surface');
         break;
       }

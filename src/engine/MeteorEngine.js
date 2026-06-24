@@ -13,7 +13,7 @@ import {
   packFrame, packSurface, packImpacts, packCompositeConfig, packFlowConfig,
 } from './gpu/Packing.js';
 import { ParameterState } from './ParameterState.js';
-import { buildSurfaceTransforms, normalProjection } from './geometry/SurfaceTransforms.js';
+import { buildSurfaceTransforms, normalProjection, surfaceWorldNormal } from './geometry/SurfaceTransforms.js';
 import { rasterizeMask } from './geometry/SurfaceMask.js';
 import { rasterizeRelief } from './geometry/ReliefShapes.js';
 import { buildFieldEvents, activeEvents } from './events/RainFieldScheduler.js';
@@ -604,7 +604,7 @@ export class MeteorEngine {
 
     // Uniform buffers must exist (and flowUniform must be populated) BEFORE
     // _uploadStatic runs: _uploadStatic -> _buildFlow binds rt.flowUniform.
-    rt.surfaceUniform ??= this.device.createBuffer({ size: 112, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    rt.surfaceUniform ??= this.device.createBuffer({ size: 128, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
     rt.flowUniform ??= this.device.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
     this._writeSurfaceUniform(rt);
 
@@ -619,6 +619,7 @@ export class MeteorEngine {
     this.queue.writeBuffer(rt.surfaceUniform, 0, packSurface({
       forward: rt.transforms.forward, inverse: rt.transforms.inverse,
       normalDir: np, enabled: rt.surface.enabled !== false, simResolution: rt.res,
+      worldNormal: surfaceWorldNormal(rt.surface),
     }));
     this.queue.writeBuffer(rt.flowUniform, 0, packFlowConfig(rt.flowConfig));
   }
@@ -835,9 +836,9 @@ export class MeteorEngine {
   _encodeBindGroup(colorInView) {
     // disabled surface uniform reused: build a tiny disabled surface buffer once
     this._disabledSurface ??= (() => {
-      const b = this.device.createBuffer({ size: 112, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+      const b = this.device.createBuffer({ size: 128, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
       const ident = [1, 0, 0, 0, 1, 0, 0, 0, 1];
-      this.queue.writeBuffer(b, 0, packSurface({ forward: ident, inverse: ident, normalDir: { dx: 0, dy: 0 }, enabled: false, simResolution: 256 }));
+      this.queue.writeBuffer(b, 0, packSurface({ forward: ident, inverse: ident, normalDir: { dx: 0, dy: 0 }, enabled: false, simResolution: 256, worldNormal: { x: 0, y: 0, z: 1 } }));
       return b;
     })();
     const dummy = this._dummyTex ??= this.pool.acquire('dummy', {

@@ -94,6 +94,7 @@ struct Surface {
   normalDir: vec2<f32>,       // screen-space displacement per unit splash height
   enabled: f32,
   simResolution: f32,
+  worldNormal: vec3<f32>,     // 3D world normal of the plane (x right, y up, z toward camera)
 };
 
 // One active impact (deposit_stamp / splash / droplets). 16 f32 = 64 bytes.
