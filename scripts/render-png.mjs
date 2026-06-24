@@ -95,8 +95,7 @@ const projArg = process.argv[2] ?? resolve(here, '..', 'src', 'client', 'project
 const project = JSON.parse(readFileSync(projArg, 'utf8'));
 if (process.env.EMPTY) { project.surfaces = []; console.log('EMPTY: no surfaces (linearize + encode only)'); }
 console.log('project:', project.projectId);
-engine.registerAssets({ environment: plate }); // reflect the plate's own sky, like the tuning page default
-engine.setProject(project);
+engine.setProject(project); // reflections use the engine's default spherical sky
 
 const output = device.createTexture({ size: { width: W, height: H }, format: FORMAT, usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC | GPUTextureUsage.TEXTURE_BINDING });
 const bpr = Math.ceil((W * 4) / 256) * 256;

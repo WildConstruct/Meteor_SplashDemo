@@ -127,24 +127,21 @@ fn fs(in: VSOut) -> @location(0) vec4<f32> {
   let refrCol = bottom * (1.0 - params.wetDarkening * 0.7 * wetAmt)
               + vec3<f32>(1.0, 0.97, 0.88) * caustic * wetAmt * 0.45;
 
-  // REFLECTION: sample the plate offset toward the horizon (what's "above" the
-  // puddle in the scene), ripple-distorted, tinted cool and lifted by bright
-  // reflected-light streaks. This is the vertical reflection you see in puddles.
+  // REFLECTION: mirror a SPHERICAL sky (equirectangular env / HDRI) — NOT the
+  // plate. The plate is the ground; reflecting it in a top-down puddle is wrong
+  // and looked awful. Build a world reflection direction from the heightfield
+  // normal (n.z is the surface up-axis -> world Y). The perspective view grazes
+  // toward the horizon with distance, so the up-component drops with grazing
+  // (near -> zenith, far -> horizon); ripple tilt (n.xy) scatters the azimuth so
+  // the sky shimmers in the waves. Sample equirect: u = azimuth, v: 0 zenith ->
+  // 1 below the horizon.
   let grazing = clamp(1.0 - surfUV.y, 0.0, 1.0);
-  // Reflect an ENVIRONMENT image (sky / street scene). The puddle mirrors what is
-  // "above" it: map the surface's far->near axis to the env's vertical axis and
-  // ripple-distort the lookup, so the reflection wobbles with the waves. This is
-  // what gives real poles/sky-in-puddle reflections that a lone plate can't.
-  // A reflection is the scene mirrored across the water plane (vertically
-  // flipped). The near surface (steep view) reflects what is high/overhead =
-  // env TOP (v->0); the far/grazing surface reflects toward the horizon = env
-  // bottom (v->~0.85). ripple normal wobbles the lookup.
-  let envUV = vec2<f32>(fract(surfUV.x + n.x * distMag * 3.0),
-                        clamp(grazing * 0.85 + n.y * distMag * 3.0, 0.0, 1.0));
+  let upness = mix(0.95, 0.22, grazing);
+  let refl = normalize(vec3<f32>(n.x * 2.2, upness, n.y * 2.2 + grazing * 0.6));
+  let lon = atan2(refl.x, refl.z) / 6.2831853 + 0.5;
+  let envUV = vec2<f32>(fract(lon), clamp(0.5 - 0.5 * refl.y, 0.0, 1.0));
   let envCol = textureSampleLevel(envTex, samp, envUV, 0.0).rgb;
-  // Tint slightly cool and lift on ripple crests; this still reads fine with the
-  // default sky-gradient env when the user hasn't supplied their own.
-  let reflCol = envCol * (0.9 + 0.4 * grazing) + vec3<f32>(0.5, 0.58, 0.72) * ripSlope * 0.5;
+  let reflCol = envCol + vec3<f32>(0.5, 0.58, 0.72) * ripSlope * 0.4;
 
   // Fresnel: rises toward the grazing far edge and on tilted ripple flanks.
   let fres = clamp(mix(0.06, 0.9, grazing * grazing) + fresnelTilt(n) * 0.8, 0.0, 1.0);

@@ -117,7 +117,6 @@ export class AppController {
       const bmp = await createImageBitmap(file, { colorSpaceConversion: 'none' });
       this.inputTexture = uploadImageTexture(this.host.device, bmp, 'plate');
       this.plateSize = { width: bmp.width, height: bmp.height };
-      this.engine?.registerAssets({ environment: this.inputTexture });
       this.notify.info('Custom plate loaded — recalibrate surfaces if needed.');
     } catch (e) {
       this.notify.error(`Plate load failed: ${e.message}`);
@@ -134,9 +133,6 @@ export class AppController {
       this.inputTexture = uploadImageTexture(this.host.device, await blankBitmap(), 'plate');
       this.plateSize = { width: 1920, height: 1080 };
     }
-    // Reflect the plate's own sky/upper region in the wet surfaces (puddles
-    // mirror the scene). The engine falls back to a default sky gradient if none.
-    this.engine?.registerAssets({ environment: this.inputTexture });
   }
 
   _loadProject(json) {

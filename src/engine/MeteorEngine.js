@@ -788,13 +788,16 @@ export class MeteorEngine {
     });
   }
 
-  // The sky/scene the wet surface reflects. Uses a registered environment asset
-  // if present, else a lazily-built vertical sky gradient (blue at the top ->
-  // pale horizon) so puddles reflect something believable out of the box.
+  // The sky the wet surface reflects, sampled as an EQUIRECTANGULAR panorama by
+  // wet_composite (v: 0 = zenith, 0.5 = horizon, 1 = below). Uses a registered
+  // environment asset (an HDRI/sky the host uploads) if present, else a lazily
+  // built procedural dusk sky so puddles reflect a believable sky out of the box.
+  // Reflecting the flat plate itself is wrong for a ground surface — this gives a
+  // real sky to mirror instead.
   _environmentView() {
     if (this.assets.environment) return this.assets.environment.createView();
     this._defaultEnv ??= (() => {
-      const w = 4;
+      const w = 128;
       const h = 64;
       const tex = this.device.createTexture({
         size: { width: w, height: h }, format: 'rgba8unorm',
@@ -802,13 +805,25 @@ export class MeteorEngine {
       });
       const bpr = Math.ceil((w * 4) / 256) * 256;
       const buf = new Uint8Array(bpr * h);
-      const lerp = (a, b, t) => Math.round(a + (b - a) * t);
+      const lerp = (a, b, t) => a + (b - a) * t;
+      const clamp = (v) => Math.max(0, Math.min(255, Math.round(v)));
+      // colour stops by elevation: zenith -> upper sky -> horizon glow -> ground
       for (let y = 0; y < h; y++) {
-        const t = y / (h - 1); // 0 = sky top, 1 = horizon
-        const r = lerp(64, 198, t); const g = lerp(118, 206, t); const b = lerp(196, 220, t);
+        const v = y / (h - 1);
+        let r; let g; let b;
+        if (v < 0.5) {
+          const t = v / 0.5; // zenith(0) -> horizon(1)
+          r = lerp(38, 232, t * t); g = lerp(70, 168, t); b = lerp(150, 120, t);
+        } else {
+          const t = (v - 0.5) / 0.5; // horizon(0) -> ground(1)
+          r = lerp(232, 26, t); g = lerp(168, 24, t); b = lerp(120, 28, t);
+        }
         for (let x = 0; x < w; x++) {
+          // soft warm sun glow around one azimuth, just above the horizon
+          const du = Math.min(Math.abs(x / w - 0.32), 1 - Math.abs(x / w - 0.32));
+          const sun = Math.exp(-((du * du) / 0.004)) * Math.exp(-(((v - 0.46) * (v - 0.46)) / 0.004));
           const o = y * bpr + x * 4;
-          buf[o] = r; buf[o + 1] = g; buf[o + 2] = b; buf[o + 3] = 255;
+          buf[o] = clamp(r + sun * 60); buf[o + 1] = clamp(g + sun * 45); buf[o + 2] = clamp(b + sun * 20); buf[o + 3] = 255;
         }
       }
       this.device.queue.writeTexture({ texture: tex }, buf, { bytesPerRow: bpr, rowsPerImage: h }, { width: w, height: h });

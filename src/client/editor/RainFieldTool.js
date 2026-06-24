@@ -41,12 +41,22 @@ export function renderField(group, vp, surface, field, selected, ctx) {
   }
 }
 
+// Cap the number of authoring dots drawn per field. The dots are a placement aid
+// rebuilt every frame; with dense rain a field can hold many hundreds of events,
+// and drawing them all as SVG nodes each frame thrashes the DOM enough to make
+// the editor unresponsive (dragging stops) and can crash the tab. Drawing a
+// representative, evenly-spaced subset keeps the overlay readable and fast — the
+// GPU sim still uses every event.
+const MAX_DOTS = 140;
+
 export function renderDots(group, vp, surface, field, ctx) {
   const events = buildFieldEvents(field, ctx.projectSeed, ctx.params);
   const frame = ctx.frame;
   const heroSources = ctx.heroSources;
+  const step = Math.max(1, Math.ceil(events.length / MAX_DOTS));
 
-  for (const ev of events) {
+  for (let i = 0; i < events.length; i += step) {
+    const ev = events[i];
     if (heroSources.has(ev.stableId)) continue; // promoted -> hidden as generated
     const resp = getResponse(ev.responseId);
     const life = resp.lifetime * ctx.frameRate * (ctx.params.lifetime ?? 1);

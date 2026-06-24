@@ -179,7 +179,8 @@ async function start() {
     try { plateBmp = await loadImageBitmap(`${import.meta.env.BASE_URL}assets/demo/tesla-model3.png`); }
     catch { plateBmp = await makePlate(); }
     plate = uploadPlate(host.device, plateBmp);
-    engine.registerAssets({ environment: uploadPlate(host.device, plateBmp) });
+    // Reflections use the engine's spherical sky env by default (the plate is the
+    // GROUND, not something to mirror). Use "Load sky/env" to supply a real HDRI.
     project = buildProject();
     engine.setProject(project);
     engine.setParameters(overrides);
