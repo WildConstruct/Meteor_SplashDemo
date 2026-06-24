@@ -99,7 +99,7 @@ export class MeteorEngine {
     // shared uniform buffers (rewritten per frame / per sim-step submit)
     const ub = (size) => dev.createBuffer({ size, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
     this.uniformBuffers.frame = ub(32);
-    this.uniformBuffers.params = ub(112);
+    this.uniformBuffers.params = ub(128);
     // Two CompositeConfig buffers with fixed encode flags, written ONCE. The
     // per-surface composite passes (encode=0, stay linear) and the final encode
     // pass (encode=1, linear->sRGB) all record into one command encoder and are
@@ -473,8 +473,8 @@ export class MeteorEngine {
   }
 
   _paramsPadded() {
-    const packed = this.params.packUniform(); // 27 f32
-    const buf = new Float32Array(28); // pad to struct size 112 bytes
+    const packed = this.params.packUniform(); // 30 f32
+    const buf = new Float32Array(32); // pad to struct size 128 bytes
     buf.set(packed);
     return buf;
   }

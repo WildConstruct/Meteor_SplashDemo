@@ -46,9 +46,40 @@ fn luminance(c: vec3<f32>) -> f32 {
   return dot(c, vec3<f32>(0.2126, 0.7152, 0.0722));
 }
 
+// ---- value-noise FBM (hash after Dave Hoskins / Ethera super_fractal) ----
+fn hash21(p: vec2<f32>) -> f32 {
+  var p3 = fract(vec3<f32>(p.x, p.y, p.x) * 0.1031);
+  p3 = p3 + dot(p3, p3.yzx + 33.33);
+  return fract((p3.x + p3.y) * p3.z);
+}
+
+fn vnoise(p: vec2<f32>) -> f32 {
+  let i = floor(p);
+  let f = fract(p);
+  let u = f * f * (3.0 - 2.0 * f);
+  let a = hash21(i);
+  let b = hash21(i + vec2<f32>(1.0, 0.0));
+  let c = hash21(i + vec2<f32>(0.0, 1.0));
+  let d = hash21(i + vec2<f32>(1.0, 1.0));
+  return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+}
+
+// 4-octave FBM in ~[0,1]; art-directs where puddles pool.
+fn fbm2(p_in: vec2<f32>) -> f32 {
+  var p = p_in;
+  var v = 0.0;
+  var amp = 0.5;
+  for (var i = 0; i < 4; i = i + 1) {
+    v = v + amp * vnoise(p);
+    p = p * 2.0;
+    amp = amp * 0.5;
+  }
+  return v / 0.9375; // normalise sum of amplitudes (0.5+0.25+0.125+0.0625)
+}
+
 // ---- shared uniform structs ----
 // Packed scalar parameters. Field ORDER must match ParameterState.WGSL_PARAM_IDS
-// (see docs/shader-bindings.md). 27 scalars.
+// (see docs/shader-bindings.md). 30 scalars.
 struct Params {
   debugMode: f32,
   visualGain: f32,
@@ -77,6 +108,9 @@ struct Params {
   edgeBead: f32,
   dropletScale: f32,
   waterLevel: f32,   // base standing-water/wetness floor inside the mask (0 dry .. 1 full pool)
+  puddleAmount: f32, // how strongly fractal noise carves puddles into the wetness floor
+  puddleScale: f32,  // puddle noise frequency (blobs across the surface)
+  puddleEdge: f32,   // puddle boundary sharpness (0 soft .. 1 crisp)
 };
 
 struct Frame {

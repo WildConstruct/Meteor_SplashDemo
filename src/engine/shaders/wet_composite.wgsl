@@ -68,11 +68,16 @@ fn wetCompositeLinear(surfUV: vec2<f32>, imgUV: vec2<f32>, base: vec3<f32>) -> v
   let rippleH = state.b;
 
   // It is raining, so the masked ground reads wet — but how MUCH standing water
-  // sits there at rest is the "Water Level" control. A low level leaves the
-  // ground merely damp so individual drops land on near-dry ground and BUILD
-  // visible wetness/puddles (the accumulating `wet` channel); a high level reads
-  // as a full mirror pool. Accumulated wetness always pushes toward saturated.
-  let wetAmt = clamp(max(wet, mask * params.waterLevel), 0.0, 1.0);
+  // sits there at rest is the "Water Level" control, art-directed into PUDDLES by
+  // a fractal-noise field: low spots pool, high spots stay merely damp. Puddle
+  // Amount fades between uniform wetness and noise-carved puddles; Scale sets the
+  // blob frequency; Edge sharpens the puddle boundary. Accumulated `wet` from
+  // drops always pushes toward saturated on top.
+  let pud = fbm2(surfUV * params.puddleScale);
+  let e = clamp(params.puddleEdge, 0.0, 0.98);
+  let puddle = smoothstep(0.5 - (1.0 - e) * 0.5, 0.5 + (1.0 - e) * 0.5, pud);
+  let wetFloor = mask * params.waterLevel * mix(1.0, puddle, params.puddleAmount);
+  let wetAmt = clamp(max(wet, wetFloor), 0.0, 1.0);
   let pool = clamp(water, 0.0, 1.0);
 
   // ---- surface normal from the heightfield ripple gradient (+ micro breakup) ----
@@ -132,9 +137,13 @@ fn wetCompositeLinear(surfUV: vec2<f32>, imgUV: vec2<f32>, base: vec3<f32>) -> v
   let lum = luminance(col);
   col = mix(vec3<f32>(lum), col, 1.0 + params.saturationShift * wetAmt);
 
-  // ---- specular glint (Blinn-Phong; view looks straight down at the film) ----
+  // ---- specular glint (Blinn-Phong). The VIEW direction is the plane's world
+  // normal (set by the orientation wheel), not a fixed straight-down — so tilting
+  // the wheel changes the angle the ripples are *seen* at and the glints rake
+  // across the surface, making the drops feel placed in the scene. ----
+  let viewDir = normalize(vec3<f32>(wn.x, wn.y, max(wn.z, 0.2)));
   let lightDir = normalize(vec3<f32>(cos(params.specularDirection), sin(params.specularDirection), 0.55));
-  let halfV = normalize(lightDir + vec3<f32>(0.0, 0.0, 1.0));
+  let halfV = normalize(lightDir + viewDir);
   let spec = pow(max(dot(n, halfV), 0.0), mix(18.0, 220.0, 1.0 - clamp(params.specularWidth, 0.0, 1.0)));
   col = col + spec * params.specularGain * (0.4 + 0.7 * wetAmt);
 
