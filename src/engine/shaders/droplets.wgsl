@@ -44,9 +44,9 @@ fn vs(@builtin(vertex_index) vid: u32, @builtin(instance_index) iid: u32) -> Dro
   let age = ageFrames / 30.0; // seconds at sim hz reference
   let alive = ageFrames >= 0.0 && ageFrames <= lifeFrames;
 
-  // emit only a few slots (sparse bounce droplets, not a fountain) — the old
-  // count read as a particle spray. Bias toward larger/faster drops.
-  let emit = a2 < clamp(0.10 + imp.spreadOv * 0.18, 0.0, 0.4);
+  // short-lived ejecta beads thrown out by the splash. Emit a moderate handful
+  // per impact (scaled by spread); each flies on its own random ballistic arc.
+  let emit = a2 < clamp(0.35 + imp.spreadOv * 0.30, 0.0, 0.85);
 
   if (!alive || !emit || surface.enabled < 0.5) {
     out.pos = vec4<f32>(2.0, 2.0, 2.0, 1.0);
@@ -64,14 +64,16 @@ fn vs(@builtin(vertex_index) vid: u32, @builtin(instance_index) iid: u32) -> Dro
   let imgUV0 = apply_h(surface.homographyFwd, imp.surfaceUV);
   let center = imgUV0 + lateral * age + surface.normalDir * h;
 
-  let radius = 0.0022 * imp.dropSize * (0.6 + 0.4 * a1);
+  // Scale is artist-controllable via params.dropletScale (the "Droplet scale"
+  // slider) so the spray can be dialed from a fine mist to fat beads.
+  let radius = 0.0026 * params.dropletScale * imp.dropSize * (0.6 + 0.4 * a1);
   let q = QUAD[vid];
   let aspect = frame.resolution.x / max(frame.resolution.y, 1.0);
   let p = center + vec2<f32>(q.x, q.y * aspect) * radius;
 
   out.pos = vec4<f32>(p.x * 2.0 - 1.0, 1.0 - p.y * 2.0, 0.0, 1.0);
   out.local = q;
-  out.alpha = (1.0 - ageFrames / lifeFrames) * imp.visualGain * params.visualGain * 0.5;
+  out.alpha = (1.0 - ageFrames / lifeFrames) * imp.visualGain * params.visualGain * 0.8;
   return out;
 }
 

@@ -75,6 +75,7 @@ struct Params {
   poolHighlight: f32,
   distortion: f32,
   edgeBead: f32,
+  dropletScale: f32,
 };
 
 struct Frame {

@@ -41,7 +41,9 @@ const CONTROLS = [
   { id: 'distortion', label: 'Refraction', min: 0, max: 2, step: 0.01, def: 0.5 },
   { id: 'visualGain', label: 'Overall gain', min: 0, max: 4, step: 0.01, def: 1 },
   { id: 'splashWidth', label: 'Splash size', min: 0, max: 6, step: 0.01, def: 0.7 },
-  { id: 'splashHeight', label: 'Splash height', min: 0, max: 6, step: 0.01, def: 0.4 },
+  { id: 'splashHeight', label: 'Crown height', min: 0, max: 6, step: 0.01, def: 0.8 },
+  { id: 'dropletScale', label: 'Droplet scale', min: 0, max: 6, step: 0.01, def: 1.6 },
+  { id: 'spread', label: 'Spray spread', min: 0, max: 4, step: 0.01, def: 1.4 },
   { id: 'density', label: 'Rain density', min: 0, max: 1, step: 0.01, def: 0.4 },
 ];
 

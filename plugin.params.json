@@ -414,6 +414,19 @@
       "max": 2,
       "step": 0.01,
       "wgsl": "edgeBead"
+    },
+    {
+      "uuid": "b7c1e2a4-9f33-4d51-8e60-1a2b3c4d5e6f",
+      "aeDiskId": 1030,
+      "id": "dropletScale",
+      "name": "Droplet Scale",
+      "section": "Splash",
+      "type": "float",
+      "default": 1.0,
+      "min": 0,
+      "max": 6,
+      "step": 0.01,
+      "wgsl": "dropletScale"
     }
   ]
 }

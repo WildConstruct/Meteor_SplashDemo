@@ -6,7 +6,7 @@ Authoritative binding reference for the Dawn port. All shaders are prepended wit
 
 ## Uniform / storage struct byte layouts
 
-### `Params` (uniform, 25 scalars; struct size 112 B, write 28×f32)
+### `Params` (uniform, 26 scalars; buffer 112 B, write 28×f32)
 Field order MUST equal `ParameterState.WGSL_PARAM_IDS` (manifest order of params
 that have a `wgsl` binding). Packed by `ParameterState.packUniform()`:
 
@@ -17,7 +17,7 @@ that have a `wgsl` binding). Packed by `ParameterState.packUniform()`:
 12 flowDeflection 13 boundaryWrap 14 wetDarkening  15 saturationShift
 16 specularGain  17 specularWidth 18 specularDirection 19 microNormalStrength
 20 flowStreakStrength 21 rippleNormalStrength 22 poolHighlight 23 distortion
-24 edgeBead
+24 edgeBead       25 dropletScale
 ```
 
 ### `Frame` (uniform, 32 B) — `packFrame()`

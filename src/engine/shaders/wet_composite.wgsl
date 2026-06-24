@@ -135,10 +135,12 @@ fn fs(in: VSOut) -> @location(0) vec4<f32> {
   // "above" it: map the surface's far->near axis to the env's vertical axis and
   // ripple-distort the lookup, so the reflection wobbles with the waves. This is
   // what gives real poles/sky-in-puddle reflections that a lone plate can't.
-  // far/grazing reflects the sky (top of the env image, v->0); near reflects the
-  // horizon (v->~0.8). ripple normal wobbles the lookup.
+  // A reflection is the scene mirrored across the water plane (vertically
+  // flipped). The near surface (steep view) reflects what is high/overhead =
+  // env TOP (v->0); the far/grazing surface reflects toward the horizon = env
+  // bottom (v->~0.85). ripple normal wobbles the lookup.
   let envUV = vec2<f32>(fract(surfUV.x + n.x * distMag * 3.0),
-                        clamp((1.0 - grazing) * 0.8 + n.y * distMag * 3.0, 0.0, 1.0));
+                        clamp(grazing * 0.85 + n.y * distMag * 3.0, 0.0, 1.0));
   let envCol = textureSampleLevel(envTex, samp, envUV, 0.0).rgb;
   // Tint slightly cool and lift on ripple crests; this still reads fine with the
   // default sky-gradient env when the user hasn't supplied their own.
