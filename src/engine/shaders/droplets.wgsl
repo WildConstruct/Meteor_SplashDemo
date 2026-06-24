@@ -12,6 +12,8 @@ const GRAVITY: f32 = 9.8;
 @group(0) @binding(1) var<uniform> params: Params;
 @group(0) @binding(2) var<uniform> surface: Surface;
 @group(0) @binding(3) var<storage, read> impacts: array<Impact>;
+@group(0) @binding(4) var envTex: texture_2d<f32>; // sky the droplets reflect
+@group(0) @binding(5) var samp: sampler;
 
 struct DropVSOut {
   @builtin(position) pos: vec4<f32>,
@@ -79,7 +81,24 @@ fn fs(in: DropVSOut) -> @location(0) vec4<f32> {
   if (r > 1.0) {
     discard;
   }
-  let d = smoothstep(1.0, 0.0, r) * in.alpha;
-  let rgb = vec3<f32>(0.85, 0.92, 1.0) * d;
-  return vec4<f32>(rgb, d);
+  // Sphere-imposter shading (the lightweight take on screen-space fluid droplets):
+  // treat the quad as a little water bead. Reconstruct a hemisphere normal, give
+  // it a Fresnel rim that reflects the sky env, a bright specular glint, and a
+  // soft body — so droplets read as rounded lit water beads, not flat sprites.
+  let nz = sqrt(max(0.0, 1.0 - r * r));
+  let n = vec3<f32>(in.local.x, in.local.y, nz);
+
+  // reflect the sky env across the bead (rim grabs more sky -> Fresnel)
+  let fres = pow(1.0 - nz, 3.0);
+  let envUV = clamp(vec2<f32>(0.5 + n.x * 0.45, 0.18 - n.y * 0.35), vec2<f32>(0.0), vec2<f32>(1.0));
+  let sky = textureSampleLevel(envTex, samp, envUV, 0.0).rgb;
+
+  // specular glint toward the art-directed light
+  let lightDir = normalize(vec3<f32>(cos(params.specularDirection), sin(params.specularDirection), 0.8));
+  let spec = pow(max(dot(n, lightDir), 0.0), 24.0);
+
+  let body = sky * (0.5 + 0.8 * fres) + vec3<f32>(1.0) * spec * 0.9;
+  // fuller/brighter toward the bead centre; fade over the droplet's life
+  let cover = (0.45 + 0.55 * nz) * in.alpha;
+  return vec4<f32>(body * cover, cover); // additive (premultiplied) over the wet color
 }

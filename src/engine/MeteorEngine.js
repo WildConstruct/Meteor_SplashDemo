@@ -861,6 +861,8 @@ export class MeteorEngine {
         { binding: 1, resource: { buffer: this.uniformBuffers.params } },
         { binding: 2, resource: { buffer: rt.surfaceUniform } },
         { binding: 3, resource: { buffer: rt.impactBuffer } },
+        { binding: 4, resource: this._environmentView() },
+        { binding: 5, resource: this.samplers.linear },
       ],
     });
   }
