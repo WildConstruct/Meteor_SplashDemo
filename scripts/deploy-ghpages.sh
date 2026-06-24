@@ -13,10 +13,23 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# On Windows git-bash/MSYS, env values that look like POSIX paths (e.g.
+# BASE_PATH=/Meteor_SplashDemo/) get rewritten to Windows paths before reaching
+# node, which corrupts Vite's base (assets 404 on Pages). Exclude env + arg path
+# conversion. Harmless on Linux/macOS (just unused env vars).
+export MSYS_NO_PATHCONV=1
+export MSYS2_ENV_CONV_EXCL='*'
+
 REPO_NAME="${REPO_NAME:-Meteor_SplashDemo}"
 echo "Building with base=/$REPO_NAME/ ..."
 rm -rf dist
 BASE_PATH="/$REPO_NAME/" npx vite build
+# Guard: fail loudly if the base got mangled rather than deploying broken assets.
+if ! grep -q "\"/$REPO_NAME/assets/\|/$REPO_NAME/assets/" dist/index.html; then
+  echo "ERROR: dist/index.html base path is not /$REPO_NAME/ — aborting deploy." >&2
+  grep -o '/[^"'\'' ]*assets/[^"'\'' ]*' dist/index.html | head -1 >&2 || true
+  exit 1
+fi
 npm run assets >/dev/null 2>&1 || true
 touch dist/.nojekyll
 
