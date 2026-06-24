@@ -35,7 +35,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     }
     // temporal kernel: sharp at birth, decaying over a few frames
     let tw = exp(-age * 0.6);
-    let radius = 0.0025 + 0.004 * imp.dropSize * max(0.2, params.splashWidth) * max(0.2, imp.widthOv);
+    let wscale = max(0.2, params.rippleScale); // world/feature scale
+    let radius = (0.0025 + 0.004 * imp.dropSize * max(0.2, params.splashWidth) * max(0.2, imp.widthOv)) * wscale;
     // Aspect-correct the footprint: the square sim UV is stretched onto a (often
     // very wide) calibration quad, so a circle in UV is an ellipse in the world
     // plane. Scaling the u offset by the quad aspect makes drops land as ROUND
@@ -50,7 +51,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     water = water + imp.waterDeposit * spatial * tw * gate;
     // Ripple impulse footprint kept TIGHT (~2.5x smaller than before) so each drop
     // launches a small ring — dense like real rain on a puddle, not giant rings.
-    let rippleRadius = 0.0016 + 0.0012 * imp.dropSize;
+    let rippleRadius = (0.0016 + 0.0012 * imp.dropSize) * wscale;
     let rippleSpatial = exp(-(d * d) / (rippleRadius * rippleRadius));
     ripple = ripple + imp.rippleImpulse * rippleSpatial * exp(-age * 1.5) * gate;
   }
@@ -60,7 +61,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
   // turns that into a continuous trail behind the bright head. ---
   if (drip.amount > 0.001) {
     let rc = arrayLength(&rivulets);
-    let rw = max(drip.width, 0.002);
+    let rw = max(drip.width, 0.002) * max(0.2, params.rippleScale);
     for (var ri = 0u; ri < rc; ri = ri + 1u) {
       let rv = rivulets[ri];
       if (rv.water <= 0.0) { continue; }
@@ -68,6 +69,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
       let sp = exp(-dot(dd, dd) / (rw * rw));
       wet = wet + sp * drip.amount * 0.6 * rv.water;
       water = water + sp * drip.amount * 0.35 * rv.water;
+      // the running rivulet disturbs the wave field too, so it reads as live
+      // water interacting with the sim (a faint wake), not a painted-on streak
+      ripple = ripple + sp * drip.amount * 0.04 * rv.water;
     }
   }
 

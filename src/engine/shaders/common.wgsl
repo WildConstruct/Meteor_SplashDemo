@@ -99,7 +99,7 @@ fn puddleGate(uv: vec2<f32>, amount: f32, scale: f32, edge: f32) -> f32 {
 
 // ---- shared uniform structs ----
 // Packed scalar parameters. Field ORDER must match ParameterState.WGSL_PARAM_IDS
-// (see docs/shader-bindings.md). 30 scalars.
+// (see docs/shader-bindings.md). 31 scalars.
 struct Params {
   debugMode: f32,
   visualGain: f32,
@@ -131,6 +131,7 @@ struct Params {
   puddleAmount: f32, // how strongly fractal noise carves puddles into the wetness floor
   puddleScale: f32,  // puddle noise frequency (blobs across the surface)
   puddleEdge: f32,   // puddle boundary sharpness (0 soft .. 1 crisp)
+  rippleScale: f32,  // world/feature scale: multiplies ripple + footprint + rivulet sizes
 };
 
 struct Frame {

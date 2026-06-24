@@ -479,6 +479,19 @@
       "max": 1,
       "step": 0.01,
       "wgsl": "puddleEdge"
+    },
+    {
+      "uuid": "a2b6d7f9-e488-4ca6-d3b5-6f7081920314",
+      "aeDiskId": 1035,
+      "id": "rippleScale",
+      "name": "World / Ripple Scale",
+      "section": "Splash",
+      "type": "float",
+      "default": 1,
+      "min": 0.2,
+      "max": 4,
+      "step": 0.01,
+      "wgsl": "rippleScale"
     }
   ]
 }

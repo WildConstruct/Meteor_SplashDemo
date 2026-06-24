@@ -764,8 +764,11 @@ export class MeteorEngine {
   _effectiveDrip(surface) {
     const d = surface.drip || {};
     const wn = surfaceWorldNormal(surface);
-    const lean = Math.hypot(wn.x, wn.y);          // 0 facing camera .. 1 edge-on
-    const V = smoothstep(0.4, 0.9, lean);         // verticality
+    // The surface is FLAT when its normal points up (wn.y high) — a floor's
+    // normal points at the sky, and that's when the gizmo line stands vertical.
+    // It's VERTICAL (a wall/windshield) when the normal lies down toward the
+    // horizon (wn.y low). Streaming ramps on as the normal leaves world-up.
+    const V = smoothstep(0.7, 0.15, wn.y);        // 1 = upright/streaming, 0 = flat/pooling
     const amount = Math.max(d.amount ?? 0, (d.fromTilt ?? 0) * V);
     return {
       amount,
