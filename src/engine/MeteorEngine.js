@@ -522,13 +522,15 @@ export class MeteorEngine {
       [src, dst] = [dst, src];
     }
 
-    // splash + droplets (additive) onto src (current linear color)
+    // Ejecta droplets (additive) onto src. The splash CROWN is NOT drawn as a
+    // sprite here — it is a displacement of the water heightfield (deposit_stamp
+    // craters the surface; the wave solver rebounds it into a crown + central
+    // jet) and is lit by wet_composite like the rest of the water. Only the small
+    // flying droplets are billboards.
     for (const rt of this.surfaceRuntime.values()) {
       const impacts = this._activeImpactsAt(rt, args.frameIndex);
       if (!impacts.length) continue;
       this._uploadImpacts(rt, impacts);
-      this._drawInstanced(enc, src.createView(), this.pipelines.splash,
-        this._splashBindGroup(rt), impacts.length);
       this._drawInstanced(enc, src.createView(), this.pipelines.droplets,
         this._dropletBindGroup(rt), impacts.length * 12);
     }

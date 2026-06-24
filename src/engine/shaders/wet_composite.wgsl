@@ -158,6 +158,14 @@ fn fs(in: VSOut) -> @location(0) vec4<f32> {
   let spec = pow(max(dot(n, halfV), 0.0), mix(18.0, 220.0, 1.0 - clamp(params.specularWidth, 0.0, 1.0)));
   col = col + spec * params.specularGain * (0.4 + 0.7 * wetAmt);
 
+  // ---- splash CROWN + central jet: this IS the splash. The drop craters the
+  // heightfield; the wave solver rebounds it into a raised ring + a centre jet
+  // that rises and falls. Raised water (positive ripple height) reads lighter —
+  // the "higher = brighter" heat-map the crown shape lives in — and is brightest
+  // on its steep flanks (Fresnel). No sprite: it is displaced, lit water. ----
+  let crown = smoothstep(0.015, 0.32, rippleH);
+  col = col + vec3<f32>(0.85, 0.90, 1.0) * crown * (0.45 + 0.9 * fres) * wetAmt * params.splashHeight;
+
   // ---- reflective pooling: standing water is more mirror-like + glints harder.
   col = mix(col, reflCol, pool * 0.4 * params.poolHighlight);
   col = col + params.poolHighlight * 0.4 * pool * spec;
