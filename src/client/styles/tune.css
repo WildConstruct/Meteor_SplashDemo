@@ -13,6 +13,8 @@ html, body {
   margin: 0; height: 100%; background: var(--bg); color: var(--text);
   font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
   overscroll-behavior: none; -webkit-text-size-adjust: 100%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 #gpu-canvas {
   position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; touch-action: none;
@@ -59,9 +61,13 @@ html, body {
 
 .row { display: flex; gap: 8px; align-items: center; margin-top: 12px; flex-wrap: wrap; }
 .row button, .row a {
+  display: inline-flex; align-items: center; min-height: 40px; /* touch hit area */
   background: #1b2230; color: var(--text); border: 1px solid var(--line);
   border-radius: 8px; padding: 8px 12px; cursor: pointer; text-decoration: none; font-size: 13px;
+  transition-property: scale, background, border-color; transition-duration: .12s;
 }
+.row button:active, .row a:active, #panel-toggle:active { scale: .96; }
+#panel-toggle { transition-property: scale, background; transition-duration: .12s; min-height: 40px; }
 .row a { margin-left: auto; color: var(--accent); }
 .muted { color: var(--muted); font-variant-numeric: tabular-nums; }
 .hint { color: var(--muted); font-size: 11px; margin: 10px 0 0; }

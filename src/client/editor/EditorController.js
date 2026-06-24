@@ -4,8 +4,9 @@
 // WebGL is used for overlays; the VFX result stays entirely WebGPU-generated.
 
 import { ViewportController, svgEl } from './ViewportController.js';
+import { renderSurface } from './SurfaceTool.js';
 import { renderQuad } from './PerspectiveTool.js';
-import { renderNormal, normalAxisFromDrag } from './NormalTool.js';
+import { renderNormal, normalFromDisc } from './NormalTool.js';
 import { renderField, renderHeroDots } from './RainFieldTool.js';
 import { renderRelief } from './ReliefTool.js';
 import { pickImpact } from './ImpactPicking.js';
@@ -54,11 +55,11 @@ export class EditorController {
     for (const surface of this.state.surfaces()) {
       const surfSelected = sel.type === 'surface' && sel.id === surface.id;
       renderRelief(g, this.vp, surface);
-      // NOTE: the filled surface-mask box + grid + label (renderSurface) and the
-      // per-impact placement dots (renderDots) are intentionally NOT drawn — they
-      // cluttered the view and rebuilding hundreds of dot nodes every frame made
-      // dragging sluggish. The calibration quad below is the surface's editable
-      // outline; the GPU sim still uses every impact.
+      // Invisible clickable hit region (click the surface to select it). The old
+      // filled mask box + grid + label and the per-impact placement dots are
+      // intentionally gone — clutter + per-frame DOM churn that made dragging
+      // sluggish. The calibration quad below is the visible editable outline.
+      renderSurface(g, this.vp, surface, surfSelected);
       renderQuad(g, this.vp, surface, surfSelected);
       renderNormal(g, this.vp, surface, surfSelected);
       for (const field of surface.rainFields ?? []) {
@@ -112,14 +113,18 @@ export class EditorController {
       this.drag = { type: 'hero', id: t.dataset.id, surfaceId: t.dataset.surface };
       return;
     }
+    if (handle === 'surface-select') {
+      this.state.select('surface', t.dataset.surface); // click the surface to select; no drag
+      return;
+    }
     if (handle === 'quad') {
       this.state.select('surface', t.dataset.surface);
       this.drag = { type: 'quad', surfaceId: t.dataset.surface, corner: Number(t.dataset.corner) };
       return;
     }
-    if (handle === 'normal-x' || handle === 'normal-y' || handle === 'normal-z') {
+    if (handle === 'normal-disc') {
       this.state.select('surface', t.dataset.surface);
-      this.drag = { type: 'normal-axis', surfaceId: t.dataset.surface, axis: handle.slice(-1) };
+      this.drag = { type: 'normal-disc', surfaceId: t.dataset.surface };
       return;
     }
     if (handle === 'field-move') {
@@ -145,9 +150,9 @@ export class EditorController {
         this.state.emit('surface');
         break;
       }
-      case 'normal-axis': {
+      case 'normal-disc': {
         const s = this.state.surface(this.drag.surfaceId);
-        s.worldNormal = normalAxisFromDrag(this.vp, s, this.drag.axis, screen);
+        s.worldNormal = normalFromDisc(this.vp, s, screen);
         this.state.emit('surface');
         break;
       }

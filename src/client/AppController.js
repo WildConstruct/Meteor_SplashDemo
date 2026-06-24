@@ -190,10 +190,23 @@ export class AppController {
       this._raf = requestAnimationFrame(frame);
       if (!this.engine) return;
 
+      // Freeze active simming while the user is reorienting a handle/gizmo or
+      // calibrating: no sim advance, no recompile, no GPU re-render. The SVG
+      // overlay (the moving line/wheel) keeps updating live via the state-change
+      // listener, so the gesture stays buttery; the sim + reflection recompute
+      // once, the instant the drag ends.
+      if (this.editor && this.editor.drag) {
+        this._resumeAfterDrag = true;
+        return;
+      }
+      if (this._resumeAfterDrag) {
+        this._resumeAfterDrag = false;
+        this.projectDirty = true; // apply the dragged geometry/normal now
+      }
+
       if (this.host.resizeToDisplay()) {
         this.engine.resize({ width: this.host.canvas.width, height: this.host.canvas.height, pixelAspect: 1 });
       }
-      this.engine.resize({ width: this.host.canvas.width, height: this.host.canvas.height, pixelAspect: 1 });
 
       const frameIndex = this.timeline.update(now);
 

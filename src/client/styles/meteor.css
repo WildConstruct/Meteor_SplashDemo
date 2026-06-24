@@ -16,7 +16,15 @@ body {
   background: var(--bg);
   color: var(--text);
   font: 13px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
+/* tactile press feedback on the chrome buttons (specific properties only) */
+#topbar button, .timeline button {
+  transition-property: scale, border-color, background;
+  transition-duration: .12s;
+}
+#topbar button:active, .timeline button:active { scale: .96; }
 
 #app { display: grid; grid-template-rows: auto 1fr auto; height: 100vh; }
 
@@ -122,12 +130,16 @@ body {
 .field-scale { fill: #b48cff; }
 .handle-label { fill: var(--text); font-size: 11px; }
 .normal-line { stroke: #7affc0; stroke-width: 2; }
-/* 3D world-normal gizmo */
-.gizmo-axis { stroke-width: 1.25; opacity: .5; }
-.gizmo-axis-label { font-size: 11px; font-weight: 700; }
-.gizmo-normal { stroke: #fff; stroke-width: 2.5; }
+/* invisible click-to-select hit region over a surface */
+.surface-hit { fill: transparent; cursor: pointer; }
+/* 3D world-normal wheel gizmo */
+.gizmo-hit { fill: transparent; cursor: grab; }
+.gizmo-wheel { fill: none; stroke: rgba(255,255,255,.55); stroke-width: 1.5; }
+.gizmo-wheel-inner { fill: none; stroke: rgba(255,255,255,.18); stroke-width: 1; }
+.gizmo-cross { stroke: rgba(255,255,255,.18); stroke-width: 1; }
+.gizmo-normal { stroke: var(--accent); stroke-width: 2.5; }
 .gizmo-origin { fill: #fff; }
-.gizmo-handle { stroke: #000; stroke-width: 1; cursor: grab; }
+.gizmo-knob { fill: var(--accent); stroke: #02121f; stroke-width: 1.5; cursor: grab; }
 .field-footprint { fill: rgba(79,176,255,.04); stroke: rgba(79,176,255,.4); stroke-width: 1; stroke-dasharray: 3 3; }
 .field-footprint.selected { stroke: var(--accent); }
 .relief-shape { fill: rgba(255,122,89,.08); stroke: var(--hero); stroke-width: 1.5; }
@@ -145,7 +157,9 @@ body {
 .toast {
   background: var(--panel-2); border: 1px solid var(--line); border-left-width: 4px;
   border-radius: 6px; padding: 8px 12px; max-width: 360px;
-  opacity: 0; transform: translateY(8px); transition: .25s;
+  opacity: 0; transform: translateY(8px);
+  transition-property: opacity, transform; transition-duration: .25s;
+  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
 }
 .toast.show { opacity: 1; transform: none; }
 .toast-info { border-left-color: var(--accent); }
